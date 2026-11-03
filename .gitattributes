@@ -1,0 +1,5 @@
+# Amiga scripts, shell scripts and sources keep LF line endings
+* text=auto eol=lf
+tools/amiga/bin/* binary
+*.png binary
+*.jpg binary
