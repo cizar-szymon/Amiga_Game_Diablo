@@ -1,0 +1,35 @@
+/* Renames the SDL renderer functions of this file to r8_* (render_dispatch.c
+   picks the renderer at SDL_CreateRenderer). Include after SDL.h. */
+#define SDL_CreateTexture r8_CreateTexture
+#define SDL_CreateTextureFromSurface r8_CreateTextureFromSurface
+#define SDL_DestroyTexture r8_DestroyTexture
+#define SDL_QueryTexture r8_QueryTexture
+#define SDL_UpdateTexture r8_UpdateTexture
+#define SDL_LockTexture r8_LockTexture
+#define SDL_UnlockTexture r8_UnlockTexture
+#define SDL_SetTextureBlendMode r8_SetTextureBlendMode
+#define SDL_SetTextureAlphaMod r8_SetTextureAlphaMod
+#define SDL_SetTextureColorMod r8_SetTextureColorMod
+#define SDL_CreateRenderer r8_CreateRenderer
+#define SDL_DestroyRenderer r8_DestroyRenderer
+#define SDL_GetRendererInfo r8_GetRendererInfo
+#define SDL_GetRendererOutputSize r8_GetRendererOutputSize
+#define SDL_RenderSetLogicalSize r8_RenderSetLogicalSize
+#define SDL_RenderGetLogicalSize r8_RenderGetLogicalSize
+#define SDL_SetRenderTarget r8_SetRenderTarget
+#define SDL_GetRenderTarget r8_GetRenderTarget
+#define SDL_SetRenderDrawColor r8_SetRenderDrawColor
+#define SDL_SetRenderDrawBlendMode r8_SetRenderDrawBlendMode
+#define SDL_RenderClear r8_RenderClear
+#define SDL_RenderCopy r8_RenderCopy
+#define SDL_RenderFillRect r8_RenderFillRect
+#define SDL_RenderDrawRect r8_RenderDrawRect
+#define SDL_RenderDrawLine r8_RenderDrawLine
+#define SDL_RenderDrawPoint r8_RenderDrawPoint
+#define SDL_RenderReadPixels r8_RenderReadPixels
+#define SDL_RenderPresent r8_RenderPresent
+#define SDL_SetRenderOffsetX r8_SetRenderOffsetX
+#define SDL_SetRenderClipX r8_SetRenderClipX
+#define SDL_MakeTextureKeyedX r8_MakeTextureKeyedX
+#define SDL_MirrorTextureX r8_MirrorTextureX
+#define SDL_SetTextureKeyLikeX r8_SetTextureKeyLikeX

@@ -1,0 +1,34 @@
+/* Renames the SDL renderer functions of this file to r16_* (render_dispatch.c
+   picks the renderer at SDL_CreateRenderer). Include after SDL.h. */
+#define SDL_CreateTexture r16_CreateTexture
+#define SDL_CreateTextureFromSurface r16_CreateTextureFromSurface
+#define SDL_DestroyTexture r16_DestroyTexture
+#define SDL_QueryTexture r16_QueryTexture
+#define SDL_UpdateTexture r16_UpdateTexture
+#define SDL_LockTexture r16_LockTexture
+#define SDL_UnlockTexture r16_UnlockTexture
+#define SDL_SetTextureBlendMode r16_SetTextureBlendMode
+#define SDL_SetTextureAlphaMod r16_SetTextureAlphaMod
+#define SDL_SetTextureColorMod r16_SetTextureColorMod
+#define SDL_CreateRenderer r16_CreateRenderer
+#define SDL_DestroyRenderer r16_DestroyRenderer
+#define SDL_GetRendererInfo r16_GetRendererInfo
+#define SDL_GetRendererOutputSize r16_GetRendererOutputSize
+#define SDL_RenderSetLogicalSize r16_RenderSetLogicalSize
+#define SDL_RenderGetLogicalSize r16_RenderGetLogicalSize
+#define SDL_SetRenderTarget r16_SetRenderTarget
+#define SDL_GetRenderTarget r16_GetRenderTarget
+#define SDL_SetRenderDrawColor r16_SetRenderDrawColor
+#define SDL_SetRenderDrawBlendMode r16_SetRenderDrawBlendMode
+#define SDL_RenderClear r16_RenderClear
+#define SDL_RenderCopy r16_RenderCopy
+#define SDL_RenderFillRect r16_RenderFillRect
+#define SDL_RenderDrawRect r16_RenderDrawRect
+#define SDL_RenderDrawLine r16_RenderDrawLine
+#define SDL_RenderDrawPoint r16_RenderDrawPoint
+#define SDL_RenderReadPixels r16_RenderReadPixels
+#define SDL_RenderPresent r16_RenderPresent
+#define SDL_SetRenderOffsetX r16_SetRenderOffsetX
+#define SDL_SetRenderClipX r16_SetRenderClipX
+#define SDL_MakeTextureKeyedX r16_MakeTextureKeyedX
+#define SDL_SetTextureKeyLikeX r16_SetTextureKeyLikeX

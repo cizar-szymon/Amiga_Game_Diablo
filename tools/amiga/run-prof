@@ -1,0 +1,6 @@
+Stack 1000000
+SetEnv DIABLO_STATS 1
+SetEnv DIABLO_GOD 1
+CD WorkSD:Games/DiabloWarp
+devilutionx -n --verbose --data-dir WorkSD:Games/Diablo/ --save-dir WorkSD:Games/DiabloWarp/save/ --config-dir WorkSD:Games/DiabloWarp/save/ --log-to-file RAM:diablo.log
+UnSetEnv DIABLO_GOD

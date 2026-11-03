@@ -1,0 +1,9 @@
+# Game data (Blizzard) - never commit
+*.mpq
+*.MPQ
+*.sv
+# Reference copies, kept locally
+/upstream/
+/AmigaPortOrginal/
+/private/
+/build/

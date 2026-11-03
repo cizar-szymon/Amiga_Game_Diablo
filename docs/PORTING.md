@@ -1,0 +1,106 @@
+# DevilutionX (Diablo) dla Amigi z kartą Warp: plan i stan prac
+
+## Stan prac
+
+| Krok | Stan |
+|---|---|
+| 0. Rozpoznanie, decyzje, repo (`upstream/`, `port/`, `tools/`) | ✅ 3.11.2026 |
+| 1. Kompilator: obraz CI upstream `amigadev/crosstools:m68k-amigaos-gcc10` = **gcc 16.2.1b** (AmigaDev), CMake 4.4.5, C++23 OK | ✅ |
+| 2. Build wzorcowy upstream (prawdziwe SDL2), `tools/build_ref.sh` | ❌ 3.11 zbudowany, na Amidze 1 od razu niszczy listę pamięci (niżej) |
+| 3. Własny podzbiór SDL2 (`port/sdl`, prawdziwe nagłówki SDL2, kod z Dune) | ✅ 3.11 |
+| 4. Pierwsze uruchomienie na Amidze 1: menu, film, nowa postać, Tristram (bez dźwięku) | ✅ 3.11 |
+| 5. Pomiar i optymalizacja | ⏳ w toku (29 kl./s w Tristram) |
+| 6. Klawisze P / Esc / F10, numer wersji | ⏳ |
+| 7. Wydanie | ⏳ |
+
+## Decyzje (3.11.2026, zaakceptowane przez użytkownika)
+
+1. **Sposób D (port ze źródeł)**, baza: aktualny upstream `diasurgical/devilutionX` (master 1.6.0-dev,
+   ostatnie wydanie 1.5.5). Czysta kopia w `upstream/devilutionX` (poza gitem).
+2. **Natywny backend od razu:** własny podzbiór SDL2 na Amigę (`port/sdl`), bez biblioteki SDL2.
+   Obraz: gra rysuje 640×480 w 8 bitach z paletą → własny ekran 8-bit CLUT (bez konwersji)
+   albo okno na Workbenchu 16-bit; do VRAM tylko zmienione prostokąty.
+   Dźwięk: własny miks na Paulę, bez resamplera Speex.
+3. **Tylko Amiga.** Upstream na PC służy tylko jako wzorzec.
+4. Testy na Amidze 1 (A1200 + Warp 1260, `amiagent.cfg`; Amiga 2 niedostępna 3.11.2026), katalog
+   `WorkSD:Games/DiabloWarp`; dane z `WorkSD:Games/Diablo/diabdat.mpq` (instalacja użytkownika,
+   tylko do odczytu), zapisy i ini w `DiabloWarp` (`--data-dir`, `--save-dir`, `--config-dir`).
+
+## Platforma źródłowa (upstream master, 3.11.2026)
+
+- C++23 (`CMAKE_CXX_STANDARD 23`), Lua + sol2, magic_enum, SDL2/SDL3/SDL1 do wyboru.
+- `CMake/platforms/amiga.cmake`: `NONET` (bez wyjątków i RTTI), SDL2 budowane z kodu,
+  `DEVILUTIONX_DISPLAY_PIXELFORMAT SDL_PIXELFORMAT_INDEX8`, bez `--gc-sections` (psuło tablice
+  magic_enum na m68k).
+- CI: `-DM68K_CPU=68040 -DM68K_FPU=hard -DM68K_COMMON="-s -fbbb=- -ffast-math"`.
+- Obraz (`Source/engine/dx.cpp`): 8-bitowy `PalSurface` → blit na powierzchnię okna →
+  `SDL_UpdateWindowSurfaceRects(DirtyRects)` albo renderer i tekstura. Dla nas ścieżka bez
+  renderera (powierzchnia okna 8-bit, zmienione prostokąty).
+
+## Stary port z Aminetu (2020)
+
+`AmigaPortOrginal/` (poza gitem): DevilutionX z 22.02.2020, SDL 1.2, 640×480×8, kod AMMX
+(Vampire). `debug.log`: tryb 640x480 bpp=8, bez skalowania.
+
+## Build wzorcowy upstream na Amidze 1 (3.11.2026)
+
+`tools/build_ref.sh` (obraz CI, gcc 16.2, 68040 + FPU, SDL2 z upstream), program 6,6 MB + `assets`
+(12 MB) w `WorkSD:Games/DiabloWarp/ref`, start `run-ref` (`Stack 1000000`, `-n -f --verbose`,
+`--data-dir WorkSD:Games/Diablo/`). Zaraz po starcie: **Software Failure 0x0100000C** „Sanity check
+on memory list failed during AvailMem(MEMF_LARGEST)” (ROM, PC $F821AE, zgłosił task „RAM”) –
+uszkodzona lista wolnej pamięci Exec, czyli zapis poza przydzielonym blokiem albo zwolnienie złego
+bloku. AmiAgent przestał odpowiadać, potrzebny reset ręczny. Zdjęcie: `pic_err/IMG_3786.JPG`.
+Nie debugujemy (SDL2 z upstream i tak zastępuje nasz backend); w naszej wersji od początku tryb
+testowy przydziału pamięci ze strażnikami granic bloków.
+
+## Narzędzia (Amiga 1, `WorkSD:Games/DiabloWarp`)
+
+| Co | Jak |
+|---|---|
+| build | `sh tools/build.sh [clean]` → `build/amiga/devilutionx` (+ `.map` dla profilera) |
+| zmiany w kodzie gry | `port/apply_port.py` (podmiany tekstu z kontrolą) + `port/overlay/` |
+| start | `start "Execute WorkSD:Games/DiabloWarp/run-warp"` (Stack 1000000, `DIABLO_STATS`, log `RAM:diablo.log`) |
+| wejście testowe | `sh tools/cmd.sh "0 click 320 213" "2500 key return" ...` → `RAM:diablo-cmd`; też `profon`, `profoff`, `stats`, `mark` |
+| zrzut ekranu 8-bit | `sh tools/shot.sh plik.png` (`clutshot` z Dune – `SHOT` AmiAgenta ma złe kolory na CLUT) |
+| profiler | `profon`/`profoff` → `sh tools/prof.sh` (symbole z mapy linkera, `tools/map2syms.py`; po LTO plik Amigi nie ma symboli) |
+| statystyki | `ENV:DIABLO_STATS`: co 5 s kl./s, czas klatki, czas wysyłania, KB/klatkę (log zablokowany, dopóki gra działa) |
+| wejście do Tristram | menu → `0 click 320 213`, `2500 key return`, `2500 key return` (postać „warp”, Normal) |
+
+## Wydajność (Amiga 1: A1200 + Warp 1260, 68060; Tristram, postój przy starcie)
+
+| Zmiana | kl./s | klatka | wysyłanie | Uwagi |
+|---|---|---|---|---|
+| pierwszy build (ekran 8-bit CLUT, porównanie z kopią) | 6,6 | 149 ms | 9,9 ms | profil: `BlitPixelsWithLightmap` 44% |
+| `Per-pixel Lighting=0` (oświetlenie płytkami jak w oryginale) | 24,0 | 41 ms | 9,6 ms | renderer płytek ~50%, porównanie 24% |
+| wysyłanie bez porównania: prostokąty gry → VRAM przez MOVE16 | 26,6 | ~37 ms | ~6 ms | `DIABLO_PRESENT=DIFF` = stary sposób |
+| `overlapped_memset.hpp`: kopie 2/4/8 B jako `move.w/l` (gcc robił 4× `move.b` przez stos) | **29,3** | 34 ms | 5,9 ms | binarka −70 KB |
+| to samo, marsz po Tristram (przewijanie) | 25–32 | 31–39 ms | 5,9 ms | pojedyncze zacięcia ~300 ms – do zbadania |
+
+Wnioski: Diablo przerysowuje cały widok co klatkę, więc porównanie z kopią nie oszczędza zapisu.
+Dalej: renderer płytek (`dun_render.cpp`, sekcja `.text.hot`), domyślnie `Per-pixel Lighting=0` na Amidze.
+
+### Loch (3.11.2026, Amiga 1, postać AR z zapisu użytkownika, poziom 2, walka ze szkieletami, postój)
+
+Scena: `sh tools/scene_dungeon.sh run-prof` (zapis `save/single_1.sv`, kopia `single_1.sv.bak`;
+`ENV:DIABLO_GOD` – postać nie traci życia).
+
+| Zmiana | kl./s | klatka | Uwagi |
+|---|---|---|---|
+| pętle pikseli płytek w C (`DIABLO_BLIT_C`) | 14,3 | 69 ms | profil: `BlitPixelsWithMap` 39%, `BlitPixelsBlendedWithMap` 22% |
+| te pętle w asm 68060 (`amiga_blit.c`, 4 piksele naraz) | **15,1** | 65 ms | `DIABLO_VERIFY_BLIT`: 6,4 mln wywołań, 0 różnic |
+
+Pętle są ograniczone pamięcią, nie procesorem: ~23 ms na ~300 tys. pikseli (~7 taktów/piksel),
+zapis do bufora w Fast RAM (alokacja linii 16 B przy zapisie + zapis zwrotny) i odczyt grafiki
+płytek przy ~70 MB/s. Szybszy kod nie pomoże; trzeba rysować mniej pikseli.
+
+### Ile obrazu naprawdę się zmienia (`ENV:DIABLO_CELLS`, komórki 32×32, co 10. klatka)
+
+| Scena | zmienione komórki widoku po przesunięciu kamery | bez przesunięcia |
+|---|---|---|
+| Tristram, postój | 0–1% | 0–1% |
+| Tristram, marsz | 5–17% | 33–91% |
+| loch (poziom 3), postój | 5% | 5% |
+| loch (poziom 3), marsz | ~29% średnio (w klatkach z ruchem ~50%; mało próbek) | 53% |
+
+Wniosek: renderer komórkowy (niezmienione komórki kopiowane blitterem karty w VRAM z przesunięciem
+kamery, CPU rysuje tylko zmienione) to jedyny duży zapas – do decyzji użytkownika.
