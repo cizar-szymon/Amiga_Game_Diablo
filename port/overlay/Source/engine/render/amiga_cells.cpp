@@ -22,6 +22,9 @@
 extern "C" int msdl_env(const char *name, char *buf, int size);
 extern "C" unsigned long amiga_eclock(void);
 extern "C" unsigned long amiga_eclock_per_ms(void);
+extern "C" void msdl_view_scene(int dx, int dy, int vw, int vh, const int *rects, int n, int full);
+extern "C" void msdl_view_overlay(int x, int y, int w, int h);
+extern "C" void msdl_view_overlay_all(void);
 
 namespace devilution::amiga_cells {
 
@@ -393,6 +396,21 @@ void CheckTopGuard(const char *path, int ax, int ay, int w, int h, uint32_t k1, 
 	}
 }
 
+namespace {
+const SDL_Surface *gameSurface = nullptr;
+}
+
+void RecordOverlayAbs(const SDL_Surface *surface, int x, int y, int w, int h)
+{
+	if (surface == gameSurface)
+		msdl_view_overlay(x, y, w, h);
+}
+
+void OverlayAll()
+{
+	msdl_view_overlay_all();
+}
+
 SDL_Surface *TileScratch()
 {
 	return EnsureGuarded(scratchG, 64, 64);
@@ -407,6 +425,8 @@ const DirtyRect *GetDirtyRects(int &count)
 void DrawScene(const Surface &out, int firstTileX, int firstTileY, int offsetX, int offsetY, bool forceFull,
     uint32_t levelKey, const std::function<void(const Surface &)> &drawScene)
 {
+	overlayTrack = false;
+	gameSurface = out.surface;
 	const bool stats = Env(envStats, "DIABLO_STATS");
 	unsigned long t0 = stats ? amiga_eclock() : 0, t1, t2, t3, t4;
 
@@ -415,6 +435,8 @@ void DrawScene(const Surface &out, int firstTileX, int firstTileY, int offsetX, 
 	scene = EnsureSurface(sceneG, scene, viewW, viewH);
 	if (scene == nullptr || viewW > GridW * Cell - Cell || viewH > GridH * Cell - Cell) {
 		drawScene(out);
+		msdl_view_scene(0, 0, viewW, viewH, nullptr, 0, 1);
+		overlayTrack = true;
 		return;
 	}
 	if (scene->w != viewW || levelKey != prevLevelKey)
@@ -481,6 +503,19 @@ void DrawScene(const Surface &out, int firstTileX, int firstTileY, int offsetX, 
 	for (int y = 0; y < viewH; y++)
 		std::memcpy(out.at(0, y), static_cast<const uint8_t *>(scene->pixels) + y * scene->pitch, viewW);
 	prevValid = !forceFull;
+
+	// to the present: camera move and changed scene rectangles
+	{
+		static int r4[GridW * GridH * 4];
+		for (int i = 0; i < numRects; i++) {
+			r4[i * 4] = rects[i].x;
+			r4[i * 4 + 1] = rects[i].y;
+			r4[i * 4 + 2] = rects[i].w;
+			r4[i * 4 + 3] = rects[i].h;
+		}
+		msdl_view_scene(dx, dy, viewW, viewH, r4, full ? 0 : numRects, full ? 1 : 0);
+	}
+	overlayTrack = true;
 
 	if (stats) {
 		t4 = amiga_eclock();

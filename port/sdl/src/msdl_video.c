@@ -706,6 +706,164 @@ static int present_direct8(SDL_Surface *s, const SDL_Rect *rects, int numrects)
     return 1;
 }
 
+/* ---- incremental present (cell renderer, stage 2) ----
+   The view is moved on the card by the blitter and only the changed
+   rectangles are written; the panel below the view goes through the shadow
+   comparison (it rarely changes). ENV:DIABLO_PRESENT=FULL: everything as before. */
+static SDL_Surface *inc_s;
+static struct BitMap *inc_bm;
+
+static void inc_shift(int dx, int dy, int vw, int vh)
+{
+    int w = vw - (dx < 0 ? -dx : dx), h = vh - (dy < 0 ? -dy : dy);
+    if (w <= 0 || h <= 0) return;
+    /* new(x, y) = old(x + dx, y + dy); BltBitMap handles the overlap */
+    BltBitMap(inc_bm, dx > 0 ? dx : 0, dy > 0 ? dy : 0, inc_bm, dx < 0 ? -dx : 0, dy < 0 ? -dy : 0, w, h, 0xC0, 0xFF, NULL);
+}
+
+static UBYTE *inc_mem;
+static LONG inc_bpr, inc_lock;
+static int shadow_stale = 1;   /* the panel shadow does not match the card */
+
+static void inc_lock_now(void)
+{
+    struct RenderInfo ri;
+    if (inc_mem != NULL) return;
+    WaitBlit();
+    inc_lock = p96LockBitMap(inc_bm, (UBYTE *)&ri, sizeof(ri));
+    if (inc_lock == 0) return;
+    if (ri.Memory == NULL || ri.RGBFormat != RGBFB_CLUT) {
+        p96UnlockBitMap(inc_bm, inc_lock);
+        return;
+    }
+    inc_mem = (UBYTE *)ri.Memory;
+    inc_bpr = ri.BytesPerRow;
+}
+
+static void inc_unlock(void)
+{
+    if (inc_mem != NULL) {
+        p96UnlockBitMap(inc_bm, inc_lock);
+        inc_mem = NULL;
+    }
+}
+
+static void inc_send(int x, int y, int w, int h)
+{
+    int x1 = x + w, y1 = y + h, j;
+    if (x < 0) x = 0;
+    if (y < 0) y = 0;
+    if (x1 > inc_s->w) x1 = inc_s->w;
+    if (y1 > inc_s->h) y1 = inc_s->h;
+    x &= ~3;
+    x1 = (x1 + 3) & ~3;
+    if (x1 > inc_s->w) x1 = inc_s->w & ~3;
+    if (x1 <= x || y1 <= y) return;
+    inc_lock_now();
+    if (inc_mem == NULL) return;
+    for (j = y; j < y1; j++) {
+        ULONG *d = (ULONG *)(inc_mem + (LONG)j * inc_bpr + x);
+        const ULONG *sl = (const ULONG *)((const UBYTE *)inc_s->pixels + j * inc_s->pitch + x);
+        int n = (x1 - x) >> 2;
+        while (n >= 4) {
+            d[0] = sl[0]; d[1] = sl[1]; d[2] = sl[2]; d[3] = sl[3];
+            d += 4; sl += 4; n -= 4;
+        }
+        while (n-- > 0) *d++ = *sl++;
+    }
+    st_bands++;
+    st_bytes += (unsigned long)(x1 - x) * (y1 - y);
+}
+
+/* Rows y0..y1 of the frame compared with the shadow, changed spans sent. */
+static void present_rows_diff(SDL_Surface *s, int y0, int y1)
+{
+    const Uint8 *pixels = (const Uint8 *)s->pixels;
+    int lw = s->w >> 2, by, full = shadow_stale;
+    if (shadow8 == NULL || shadow_w != s->w || shadow_h != s->h) {
+        free(shadow8);
+        shadow_w = s->w;
+        shadow_h = s->h;
+        shadow8 = (Uint8 *)malloc((size_t)shadow_w * shadow_h);
+        if (shadow8 == NULL) return;
+        full = 1;
+    }
+    shadow_stale = 0;
+    for (by = y0; by < y1; by += BAND) {
+        int ry1 = (by + BAND) > y1 ? y1 : by + BAND;
+        int cx0 = 0x7FFF, cx1 = -1, y;
+        for (y = by; y < ry1; y++) {
+            const ULONG *sl = (const ULONG *)(pixels + y * s->pitch);
+            ULONG *d = (ULONG *)(shadow8 + y * shadow_w);
+            int a, b;
+            if (full) {
+                a = 0;
+                b = lw - 1;
+            } else {
+                for (a = 0; a < lw && sl[a] == d[a]; a++) ;
+                if (a == lw) continue;
+                for (b = lw - 1; b > a && sl[b] == d[b]; b--) ;
+            }
+            memcpy(d + a, sl + a, (size_t)(b - a + 1) * 4);
+            if (a < cx0) cx0 = a;
+            if (b > cx1) cx1 = b;
+        }
+        if (cx1 >= cx0) send_span(cx0 * 4, by, (cx1 - cx0 + 1) * 4, ry1 - by);
+    }
+}
+
+/* VERIFY: read the view back from the card (test only: slow) and compare. */
+static void verify_vram(SDL_Surface *s, int vh)
+{
+    static unsigned long frames, bad_frames;
+    int y, bad = 0, fx = -1, fy = -1;
+    inc_lock_now();
+    if (inc_mem == NULL) return;
+    for (y = 0; y < vh; y++) {
+        const UBYTE *a = inc_mem + (LONG)y * inc_bpr;
+        const UBYTE *b = (const UBYTE *)s->pixels + y * s->pitch;
+        int x;
+        for (x = 0; x < s->w; x++) {
+            if (a[x] != b[x]) {
+                if (fx < 0) { fx = x; fy = y; }
+                bad++;
+            }
+        }
+    }
+    frames++;
+    if (bad != 0) {
+        bad_frames++;
+        if (bad_frames <= 30)
+            msdl_logf(SDL_LOG_PRIORITY_INFO, "present: VRAM VERIFY frame %lu: %d pixels differ, first %d,%d", frames, bad, fx, fy);
+        inc_send(0, 0, s->w, vh);   /* show the truth again */
+    }
+    inc_unlock();
+    if ((frames % 500) == 0) msdl_logf(SDL_LOG_PRIORITY_INFO, "present: VRAM verify %lu frames, %lu bad", frames, bad_frames);
+}
+
+static int present_mode_inc = -1;
+
+/* 1 when done incrementally, 0: the caller sends the frame as before. */
+static int present_incremental(SDL_Surface *s)
+{
+    int vh;
+    SDL_Palette *pal = s->format->palette;
+    if (present_mode_inc < 0) {
+        char buf[16];
+        present_mode_inc = !(msdl_env("DIABLO_PRESENT", buf, sizeof(buf)) >= 0 && (buf[0] == 'F' || buf[0] == 'f'));
+    }
+    if (!present_mode_inc || the_window->screen == NULL) return 0;
+    if (pal != NULL && pal->version != pal_version) return 0;  /* the full path loads it */
+    inc_s = s;
+    inc_bm = the_window->screen->RastPort.BitMap;
+    vh = msdl_view_upload(inc_shift, inc_send);
+    inc_unlock();
+    if (vh <= 0) return 0;
+    present_rows_diff(s, vh, s->h);
+    if (msdl_view_verify_on()) verify_vram(s, vh);
+    return 1;
+}
+
 static void present(const SDL_Rect *rects, int numrects)
 {
     SDL_Surface *s;
@@ -726,7 +884,17 @@ static void present(const SDL_Rect *rects, int numrects)
         present_mode = msdl_env("DIABLO_PRESENT", buf, sizeof(buf)) >= 0 && (buf[0] == 'D' || buf[0] == 'd');
     }
     msdl_cells_frame(pixels, pitch, w, h);
-    if (present_mode == 0 && the_window->screen != NULL && present_direct8(s, rects, numrects)) return;
+    if (present_mode == 0 && the_window->screen != NULL) {
+        int done = present_incremental(s);
+        if (!done && present_direct8(s, rects, numrects)) {
+            shadow_stale = 1;
+            done = 1;
+        }
+        msdl_view_present(pixels, pitch, w, h);
+        if (done) return;
+    } else {
+        msdl_view_present(pixels, pitch, w, h);
+    }
 
     pal = s->format->palette;
     if (pal != NULL && pal->version != pal_version) {

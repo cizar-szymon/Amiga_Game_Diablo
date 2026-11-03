@@ -329,6 +329,7 @@ int SDL_FillRect(SDL_Surface *dst, const SDL_Rect *rect, Uint32 color)
     } else if (!SDL_IntersectRect(rect, &dst->clip_rect, &r)) {
         return 0;
     }
+    if (dst->flags & SDL_DONTFREE) msdl_view_overlay(r.x, r.y, r.w, r.h);
     for (y = r.y; y < r.y + r.h; y++) {
         Uint8 *row = (Uint8 *)dst->pixels + y * dst->pitch;
         int x;
@@ -424,6 +425,7 @@ int SDL_UpperBlit(SDL_Surface *src, const SDL_Rect *srcrect, SDL_Surface *dst, S
     dr.h = sr.h > 0 ? sr.h : 0;
     if (dstrect != NULL) *dstrect = dr;
     if (dr.w == 0 || dr.h == 0) return 0;
+    if (dst->flags & SDL_DONTFREE) msdl_view_overlay(dr.x, dr.y, dr.w, dr.h);   /* the window surface */
     blit_rect(src, &sr, dst, &dr);
     return 0;
 }
@@ -453,6 +455,7 @@ int SDL_UpperBlitScaled(SDL_Surface *src, const SDL_Rect *srcrect, SDL_Surface *
     if (sr.w == dr.w && sr.h == dr.h) return SDL_UpperBlit(src, &sr, dst, dstrect);
     full = dst->clip_rect;
     if (!SDL_IntersectRect(&dr, &full, &cr)) return 0;
+    if (dst->flags & SDL_DONTFREE) msdl_view_overlay(cr.x, cr.y, cr.w, cr.h);
     key = src->map->has_colorkey;
     convert = !same_format(src, dst);
     for (y = cr.y; y < cr.y + cr.h; y++) {

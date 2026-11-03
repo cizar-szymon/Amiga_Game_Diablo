@@ -49,6 +49,21 @@ struct DirtyRect {
 void DrawScene(const Surface &out, int firstTileX, int firstTileY, int offsetX, int offsetY, bool forceFull,
     uint32_t levelKey, const std::function<void(const Surface &)> &drawScene);
 
+/**
+ * Overlays: everything drawn on the game's buffer outside the scene passes
+ * (texts, health bars, cursor, boxes) reports its rectangle, so the present
+ * knows which parts of the view to send again (msdl_view.c).
+ */
+inline bool overlayTrack = false;
+void RecordOverlayAbs(const SDL_Surface *surface, int x, int y, int w, int h);
+inline void RecordOverlay(const Surface &out, int x, int y, int w, int h)
+{
+	if (overlayTrack)
+		RecordOverlayAbs(out.surface, x + out.region.x, y + out.region.y, w, h);
+}
+/** Something covers / changes the whole view this frame (automap, panels, menus). */
+void OverlayAll();
+
 /** Record pass: a primitive covering x,y,w,h (absolute scene coordinates). */
 void RecordPrimitive(int x, int y, int w, int h, uint32_t k1, uint32_t k2, uint32_t k3);
 /** Render pass: the dirty rectangles (absolute scene coordinates). */

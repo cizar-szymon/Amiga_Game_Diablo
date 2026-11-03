@@ -214,6 +214,76 @@ CHANGES = [
      "\tif (amiga_cells::suppressSideEffects)\n"
      "\t\treturn;\n"
      "#endif\n"),
+    # ---- overlays: drawing outside the scene reports its rectangle (stage 2) ----
+    ("Source/engine/render/clx_render.cpp",
+     "\tif (amiga_cells::mode != amiga_cells::Mode::Off) { \\\n",
+     "\tamiga_cells::RecordOverlay(out, position.x - (EXTRA), position.y - clx.height() + 1 - (EXTRA), clx.width() + 2 * (EXTRA), clx.height() + 2 * (EXTRA)); \\\n"
+     "\tif (amiga_cells::mode != amiga_cells::Mode::Off) { \\\n"),
+    ("Source/engine/render/primitive_render.cpp",
+     "#include \"engine/surface.hpp\"\n",
+     "#include \"engine/surface.hpp\"\n#include \"engine/render/amiga_cells.hpp\"\n"
+     "#ifdef __amigaos__\n#define AMIGA_OVERLAY(X, Y, W, H) amiga_cells::RecordOverlay(out, (X), (Y), (W), (H))\n"
+     "#else\n#define AMIGA_OVERLAY(X, Y, W, H)\n#endif\n"),
+    ("Source/engine/render/primitive_render.cpp",
+     "void FillRect(const Surface &out, int x, int y, int width, int height, uint8_t colorIndex)\n{\n",
+     "void FillRect(const Surface &out, int x, int y, int width, int height, uint8_t colorIndex)\n{\n\tAMIGA_OVERLAY(x, y, width, height);\n"),
+    ("Source/engine/render/primitive_render.cpp",
+     "void DrawHorizontalLine(const Surface &out, Point from, int width, std::uint8_t colorIndex)\n{\n",
+     "void DrawHorizontalLine(const Surface &out, Point from, int width, std::uint8_t colorIndex)\n{\n\tAMIGA_OVERLAY(from.x, from.y, width, 1);\n"),
+    ("Source/engine/render/primitive_render.cpp",
+     "void UnsafeDrawHorizontalLine(const Surface &out, Point from, int width, std::uint8_t colorIndex)\n{\n",
+     "void UnsafeDrawHorizontalLine(const Surface &out, Point from, int width, std::uint8_t colorIndex)\n{\n\tAMIGA_OVERLAY(from.x, from.y, width, 1);\n"),
+    ("Source/engine/render/primitive_render.cpp",
+     "void DrawVerticalLine(const Surface &out, Point from, int height, std::uint8_t colorIndex)\n{\n",
+     "void DrawVerticalLine(const Surface &out, Point from, int height, std::uint8_t colorIndex)\n{\n\tAMIGA_OVERLAY(from.x, from.y, 1, height);\n"),
+    ("Source/engine/render/primitive_render.cpp",
+     "void UnsafeDrawVerticalLine(const Surface &out, Point from, int height, std::uint8_t colorIndex)\n{\n",
+     "void UnsafeDrawVerticalLine(const Surface &out, Point from, int height, std::uint8_t colorIndex)\n{\n\tAMIGA_OVERLAY(from.x, from.y, 1, height);\n"),
+    ("Source/engine/render/primitive_render.cpp",
+     "void DrawHalfTransparentHorizontalLine(const Surface &out, Point from, int width, uint8_t colorIndex)\n{\n",
+     "void DrawHalfTransparentHorizontalLine(const Surface &out, Point from, int width, uint8_t colorIndex)\n{\n\tAMIGA_OVERLAY(from.x, from.y, width, 1);\n"),
+    ("Source/engine/render/primitive_render.cpp",
+     "void DrawHalfTransparentVerticalLine(const Surface &out, Point from, int height, uint8_t colorIndex)\n{\n",
+     "void DrawHalfTransparentVerticalLine(const Surface &out, Point from, int height, uint8_t colorIndex)\n{\n\tAMIGA_OVERLAY(from.x, from.y, 1, height);\n"),
+    ("Source/engine/render/primitive_render.cpp",
+     "void DrawHalfTransparentRectTo(const Surface &out, int sx, int sy, int width, int height)\n{\n",
+     "void DrawHalfTransparentRectTo(const Surface &out, int sx, int sy, int width, int height)\n{\n\tAMIGA_OVERLAY(sx, sy, width, height);\n"),
+    ("Source/engine/render/primitive_render.cpp",
+     "void DrawHalfTransparentRectTo(const Surface &out, int sx, int sy, int width, int height, uint8_t color)\n{\n",
+     "void DrawHalfTransparentRectTo(const Surface &out, int sx, int sy, int width, int height, uint8_t color)\n{\n\tAMIGA_OVERLAY(sx, sy, width, height);\n"),
+    ("Source/engine/render/primitive_render.cpp",
+     "void SetHalfTransparentPixel(const Surface &out, Point position, uint8_t color)\n{\n",
+     "void SetHalfTransparentPixel(const Surface &out, Point position, uint8_t color)\n{\n\tAMIGA_OVERLAY(position.x, position.y, 1, 1);\n"),
+    ("Source/engine/render/primitive_render.cpp",
+     "void UnsafeDrawBorder2px(const Surface &out, Rectangle rect, uint8_t color)\n{\n",
+     "void UnsafeDrawBorder2px(const Surface &out, Rectangle rect, uint8_t color)\n{\n\tAMIGA_OVERLAY(rect.position.x, rect.position.y, rect.size.width, rect.size.height);\n"),
+    ("Source/engine/surface.cpp",
+     "#include \"engine/surface.hpp\"\n",
+     "#include \"engine/surface.hpp\"\n#include \"engine/render/amiga_cells.hpp\"\n"),
+    ("Source/engine/surface.cpp",
+     "void Surface::BlitFrom(const Surface &src, SDL_Rect srcRect, Point targetPosition) const\n{\n",
+     "void Surface::BlitFrom(const Surface &src, SDL_Rect srcRect, Point targetPosition) const\n{\n"
+     "#ifdef __amigaos__\n\tamiga_cells::RecordOverlay(*this, targetPosition.x, targetPosition.y, srcRect.w, srcRect.h);\n#endif\n"),
+    ("Source/engine/surface.cpp",
+     "void Surface::BlitFromSkipColorIndexZero(const Surface &src, SDL_Rect srcRect, Point targetPosition) const\n{\n",
+     "void Surface::BlitFromSkipColorIndexZero(const Surface &src, SDL_Rect srcRect, Point targetPosition) const\n{\n"
+     "#ifdef __amigaos__\n\tamiga_cells::RecordOverlay(*this, targetPosition.x, targetPosition.y, srcRect.w, srcRect.h);\n#endif\n"),
+    ("Source/engine/render/scrollrt.cpp",
+     "void UndrawCursor(const Surface &out)\n{\n\tDrawnCursor &cursor = GetDrawnCursor();\n",
+     "void UndrawCursor(const Surface &out)\n{\n\tDrawnCursor &cursor = GetDrawnCursor();\n"
+     "#ifdef __amigaos__\n"
+     "\tamiga_cells::RecordOverlay(out, cursor.rect.position.x, cursor.rect.position.y, cursor.rect.size.width, cursor.rect.size.height);\n"
+     "#endif\n"),
+    ("Source/engine/render/scrollrt.cpp",
+     "\tDrawGame(out, startPosition, offset);\n\tif (AutomapActive) {\n",
+     "\tDrawGame(out, startPosition, offset);\n"
+     "#ifdef __amigaos__\n"
+     "\t// screens that cover or repaint the view: send all of it\n"
+     "\tif (AutomapActive || IsLeftPanelOpen() || IsRightPanelOpen() || IsPlayerInStore() || qtextflag || HelpFlag\n"
+     "\t    || ChatLogFlag || MyPlayerIsDead || PauseMode != 0 || gmenu_is_active() || DoomFlag)\n"
+     "\t\tamiga_cells::OverlayAll();\n"
+     "#endif\n"
+     "\tif (AutomapActive) {\n"),
     # Test mode ENV:DIABLO_GOD: the own player takes no damage (measurements
     # in the dungeon without dying). Off unless the variable is set.
     ("Source/player.cpp",

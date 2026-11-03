@@ -44,6 +44,14 @@ void msdl_stats_toggle(void);
 /* msdl_cells.c: changed-cell measurement (ENV:DIABLO_CELLS) */
 void msdl_cells_frame(const Uint8 *pixels, int pitch, int w, int h);
 
+/* msdl_view.c: changes of the view since the last present (cell renderer) */
+void msdl_view_scene(int dx, int dy, int vw, int vh, const int *rects, int n, int full);
+void msdl_view_overlay(int x, int y, int w, int h);
+void msdl_view_overlay_all(void);
+void msdl_view_present(const Uint8 *pix, int pitch, int w, int h);
+int msdl_view_upload(void (*shift)(int dx, int dy, int vw, int vh), void (*send)(int x, int y, int w, int h));
+int msdl_view_verify_on(void);
+
 /* msdl_surface.c */
 SDL_PixelFormat *msdl_alloc_format(Uint32 format);
 void msdl_free_format(SDL_PixelFormat *f);

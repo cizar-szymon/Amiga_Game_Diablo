@@ -5,8 +5,8 @@
 cd "$(dirname "$0")/.."
 R="python tools/amiga_remote.py"
 $R put build/amiga/devilutionx WorkSD:Games/DiabloWarp/devilutionx >/dev/null
-$R put tools/amiga/run-vrender WorkSD:Games/DiabloWarp/run-vrender >/dev/null
-$R start "Execute WorkSD:Games/DiabloWarp/run-vrender" >/dev/null
+$R put tools/amiga/${RUNSCRIPT:-run-vrender} WorkSD:Games/DiabloWarp/${RUNSCRIPT:-run-vrender} >/dev/null
+$R start "Execute WorkSD:Games/DiabloWarp/${RUNSCRIPT:-run-vrender}" >/dev/null
 python -c "import time; time.sleep(8)"
 sh tools/cmd.sh "0 click 320 213" "2500 click 410 270" "500 click 300 445" "2500 key return" "25000 key tab" \
   "1000 mark vstand" "15000 mark vwalk" "0 click 180 230" "3000 click 320 300" "3000 click 140 200" \
