@@ -104,3 +104,27 @@ płytek przy ~70 MB/s. Szybszy kod nie pomoże; trzeba rysować mniej pikseli.
 
 Wniosek: renderer komórkowy (niezmienione komórki kopiowane blitterem karty w VRAM z przesunięciem
 kamery, CPU rysuje tylko zmienione) to jedyny duży zapas – do decyzji użytkownika.
+
+### Renderer komórkowy, etap 1 (4.11.2026, Amiga 1) – `engine/render/amiga_cells.*`, docs/RENDERER_PLAN.md
+
+Poprawność (`DIABLO_VERIFY_RENDER`, każda klatka porównana z pełnym rysowaniem): loch (postój,
+walka, marsz) i Tristram (postój, marsz w obu kierunkach) – **0 różnic**, 0 zapisów poza obrazem,
+lista pamięci cała (`Avail` po wyjściu). Skrypty: `tools/verify_render.sh`, `tools/verify_town.sh`.
+
+Błędy upstream znalezione po drodze (niewidoczne przy pełnym rysowaniu, bo tam przycina tylko brzeg
+ekranu):
+- płytki z maską (przezroczyste ściany): przycięcie z lewej / prawej / od góry przesuwa granicę maski;
+- trójkąty i trapezy płytek: przycięcie z obu stron w poziomie albo z góry i z dołu naraz pisze
+  poza obszar – **poza bufor, niszczy pamięć** (Software Failure 0x81000005 w FreeMem, potem
+  0x0100000C przy Avail). Takie płytki rysuję w całości do bufora 64×64 i kopiuję potrzebną część.
+- Bufory sceny, kontrolny i pomocniczy mają marginesy 64 px z wzorem (raport `GUARD` w logu);
+  bufor okna w msdl ma 64 wiersze zapasu nad i pod obrazem.
+
+| Scena | pełne rysowanie (`DIABLO_FULL`) | komórkowy | zapis / przesunięcie / rysowanie / kopia ms | brudne |
+|---|---|---|---|---|
+| loch, walka w miejscu | 11,5 kl./s (86 ms) | **20,7 kl./s (48 ms)** | 6,4 / 0,3 / 22 / 7,5 | 26% |
+| Tristram, postój (przy mieszkańcach) | 18,2 (54 ms) | **27,1 (36 ms)** | 6,9 / 0,3 / 13,6 / 7,3 | 17% |
+| Tristram, marsz | 17,6 (56 ms) | 18,5 (53 ms) | 8,1 / 5,5 / 24 / 7,3 | 32% |
+
+(Przed rendererem komórkowym: loch 15,1 kl./s / 65 ms.) Stały narzut ~20 ms: zapis 7, kopia sceny 7,
+wysyłka 6 – etap 2 (VRAM, blitter) usuwa kopię i zmniejsza wysyłkę; zapis do przyspieszenia.

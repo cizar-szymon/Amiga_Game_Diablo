@@ -437,15 +437,17 @@ SDL_Surface *SDL_GetWindowSurface(SDL_Window *window)
             SDL_FreeSurface(window->surface);
         }
         free(window->pixels_raw);
-        window->pixels_raw = calloc(1, (size_t)window->w * window->h + 16);
+        /* 64 spare rows above and below: the game's clipped renderers may
+           write a little outside the picture, it must not hit the heap */
+        window->pixels_raw = calloc(1, (size_t)window->w * (window->h + 128) + 16);
         if (window->pixels_raw == NULL) {
             SDL_SetError("out of memory for the window surface");
             return NULL;
         }
         /* 16-byte aligned rows (w is a multiple of 16) for MOVE16 */
         window->surface = SDL_CreateRGBSurfaceWithFormatFrom(
-            (void *)(((unsigned long)window->pixels_raw + 15) & ~15UL), window->w, window->h, 8, window->w,
-            SDL_PIXELFORMAT_INDEX8);
+            (void *)((((unsigned long)window->pixels_raw + 15) & ~15UL) + (unsigned long)window->w * 64), window->w,
+            window->h, 8, window->w, SDL_PIXELFORMAT_INDEX8);
         if (window->surface == NULL) return NULL;
         window->surface->flags |= SDL_DONTFREE;
         free(shadow8);

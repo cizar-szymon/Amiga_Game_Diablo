@@ -88,6 +88,132 @@ CHANGES = [
      "\tamiga_blit_blend_map(dst, src, length, colorMap, &paletteTransparencyLookup[0][0]);\n"
      "\treturn;\n"
      "#endif\n"),
+    # ---- incremental scene renderer (overlay engine/render/amiga_cells.*,
+    # docs/RENDERER_PLAN.md) ----
+    ("Source/CMakeLists.txt",
+     "  engine/render/scrollrt.cpp\n",
+     "  engine/render/scrollrt.cpp\n  engine/render/amiga_cells.cpp\n"),
+    ("Source/engine/render/dun_render.cpp",
+     "#include \"engine/render/blit_impl.hpp\"\n",
+     "#include \"engine/render/blit_impl.hpp\"\n#include \"engine/render/amiga_cells.hpp\"\n"),
+    ("Source/engine/render/dun_render.cpp",
+     "    MaskType maskType, const uint8_t *tbl)\n{\n#ifdef DEBUG_RENDER_OFFSET_X\n\tposition.x += DEBUG_RENDER_OFFSET_X;\n",
+     "    MaskType maskType, const uint8_t *tbl)\n{\n"
+     "#ifdef __amigaos__\n"
+     "\tif (amiga_cells::mode != amiga_cells::Mode::Off) {\n"
+     "\t\tamiga_cells::InterceptTile(out, position.x, position.y - height + 1, DunFrameWidth, height,\n"
+     "\t\t    amiga_cells::PtrKey(src), (static_cast<uint32_t>(tile) << 8) | static_cast<uint32_t>(maskType), amiga_cells::PtrKey(tbl),\n"
+     "\t\t    maskType == MaskType::Left || maskType == MaskType::Right,\n"
+     "\t\t    [&](const Surface &sub, int dx, int dy) {\n"
+     "\t\t\t    RenderTileFrame(sub, lightmap, Point { position.x + dx, position.y + dy }, tile, src, height, maskType, tbl);\n"
+     "\t\t    });\n"
+     "\t\treturn;\n"
+     "\t}\n"
+     "#endif\n"
+     "#ifdef DEBUG_RENDER_OFFSET_X\n\tposition.x += DEBUG_RENDER_OFFSET_X;\n"),
+    ("Source/engine/render/dun_render.cpp",
+     "void world_draw_black_tile(const Surface &out, int sx, int sy)\n{\n",
+     "void world_draw_black_tile(const Surface &out, int sx, int sy)\n{\n"
+     "#ifdef __amigaos__\n"
+     "\tif (amiga_cells::mode != amiga_cells::Mode::Off) {\n"
+     "\t\tamiga_cells::InterceptTile(out, sx, sy - TriangleHeight + 1, 2 * Width, TriangleHeight, 0xB1AC71E5U, 0, 0, false,\n"
+     "\t\t    [&](const Surface &sub, int dx, int dy) { world_draw_black_tile(sub, sx + dx, sy + dy); });\n"
+     "\t\treturn;\n"
+     "\t}\n"
+     "#endif\n"),
+    ("Source/engine/render/clx_render.cpp",
+     "#include \"engine/render/blit_impl.hpp\"\n",
+     "#include \"engine/render/blit_impl.hpp\"\n#include \"engine/render/amiga_cells.hpp\"\n"),
+    ("Source/engine/render/clx_render.cpp",
+     "void ClxDraw(const Surface &out, Point position, ClxSprite clx)\n{\n",
+     "#ifdef __amigaos__\n"
+     "// Incremental renderer: area of the sprite (+ outline), its data and parameters.\n"
+     "#define AMIGA_CELLS_CLX(K2, K3, EXTRA, ...) \\\n"
+     "\tif (amiga_cells::mode != amiga_cells::Mode::Off) { \\\n"
+     "\t\tamiga_cells::Intercept(out, position.x - (EXTRA), position.y - clx.height() + 1 - (EXTRA), clx.width() + 2 * (EXTRA), clx.height() + 2 * (EXTRA), \\\n"
+     "\t\t    amiga_cells::PtrKey(clx.pixelData()), (K2), (K3), [&](const Surface &sub, int dx, int dy) { \\\n"
+     "\t\t\t    const Point p { position.x + dx, position.y + dy }; \\\n"
+     "\t\t\t    __VA_ARGS__; \\\n"
+     "\t\t    }); \\\n"
+     "\t\treturn; \\\n"
+     "\t}\n"
+     "#else\n"
+     "#define AMIGA_CELLS_CLX(K2, K3, EXTRA, ...)\n"
+     "#endif\n"
+     "\n"
+     "void ClxDraw(const Surface &out, Point position, ClxSprite clx)\n{\n"
+     "\tAMIGA_CELLS_CLX(1, 0, 0, ClxDraw(sub, p, clx))\n"),
+    ("Source/engine/render/clx_render.cpp",
+     "void ClxDrawTRN(const Surface &out, Point position, ClxSprite clx, const uint8_t *trn)\n{\n",
+     "void ClxDrawTRN(const Surface &out, Point position, ClxSprite clx, const uint8_t *trn)\n{\n"
+     "\tAMIGA_CELLS_CLX(2, amiga_cells::PtrKey(trn), 0, ClxDrawTRN(sub, p, clx, trn))\n"),
+    ("Source/engine/render/clx_render.cpp",
+     "void ClxDrawWithLightmap(const Surface &out, Point position, ClxSprite clx, const Lightmap &lightmap)\n{\n",
+     "void ClxDrawWithLightmap(const Surface &out, Point position, ClxSprite clx, const Lightmap &lightmap)\n{\n"
+     "\tAMIGA_CELLS_CLX(3, 0, 0, ClxDrawWithLightmap(sub, p, clx, lightmap))\n"),
+    ("Source/engine/render/clx_render.cpp",
+     "void ClxDrawBlended(const Surface &out, Point position, ClxSprite clx)\n{\n",
+     "void ClxDrawBlended(const Surface &out, Point position, ClxSprite clx)\n{\n"
+     "\tAMIGA_CELLS_CLX(4, 0, 0, ClxDrawBlended(sub, p, clx))\n"),
+    ("Source/engine/render/clx_render.cpp",
+     "void ClxDrawBlendedTRN(const Surface &out, Point position, ClxSprite clx, const uint8_t *trn)\n{\n",
+     "void ClxDrawBlendedTRN(const Surface &out, Point position, ClxSprite clx, const uint8_t *trn)\n{\n"
+     "\tAMIGA_CELLS_CLX(5, amiga_cells::PtrKey(trn), 0, ClxDrawBlendedTRN(sub, p, clx, trn))\n"),
+    ("Source/engine/render/clx_render.cpp",
+     "void ClxDrawBlendedWithLightmap(const Surface &out, Point position, ClxSprite clx, const Lightmap &lightmap)\n{\n",
+     "void ClxDrawBlendedWithLightmap(const Surface &out, Point position, ClxSprite clx, const Lightmap &lightmap)\n{\n"
+     "\tAMIGA_CELLS_CLX(6, 0, 0, ClxDrawBlendedWithLightmap(sub, p, clx, lightmap))\n"),
+    ("Source/engine/render/clx_render.cpp",
+     "void ClxDrawOutline(const Surface &out, uint8_t col, Point position, ClxSprite clx)\n{\n",
+     "void ClxDrawOutline(const Surface &out, uint8_t col, Point position, ClxSprite clx)\n{\n"
+     "\tAMIGA_CELLS_CLX(7, col, 1, ClxDrawOutline(sub, col, p, clx))\n"),
+    ("Source/engine/render/clx_render.cpp",
+     "void ClxDrawOutlineSkipColorZero(const Surface &out, uint8_t col, Point position, ClxSprite clx)\n{\n",
+     "void ClxDrawOutlineSkipColorZero(const Surface &out, uint8_t col, Point position, ClxSprite clx)\n{\n"
+     "\tAMIGA_CELLS_CLX(8, col, 1, ClxDrawOutlineSkipColorZero(sub, col, p, clx))\n"),
+    ("Source/engine/render/scrollrt.cpp",
+     "#include \"engine/render/scrollrt.h\"\n",
+     "#include \"engine/render/scrollrt.h\"\n#include \"engine/render/amiga_cells.hpp\"\n"),
+    ("Source/engine/render/scrollrt.cpp",
+     "\tLightmap lightmap = Lightmap::build(*GetOptions().Graphics.perPixelLighting, position, Point {} + offset,\n"
+     "\t    gnScreenWidth, gnViewportHeight, rows, columns,\n"
+     "\t    out.at(0, 0), out.pitch(), LightTables, FullyLitLightTable, FullyDarkLightTable,\n"
+     "\t    dLight, MicroTileLen);\n"
+     "\n"
+     "\tDrawFloor(out, lightmap, position, Point {} + offset, rows, columns);\n"
+     "\tDrawTileContent(out, lightmap, position, Point {} + offset, rows, columns);\n"
+     "\tDrawOOB(out, lightmap, position, Point {} + offset, rows, columns);\n",
+     "\tconst auto drawScene = [&](const Surface &target) {\n"
+     "\t\tLightmap lightmap = Lightmap::build(*GetOptions().Graphics.perPixelLighting, position, Point {} + offset,\n"
+     "\t\t    gnScreenWidth, gnViewportHeight, rows, columns,\n"
+     "\t\t    target.at(0, 0), target.pitch(), LightTables, FullyLitLightTable, FullyDarkLightTable,\n"
+     "\t\t    dLight, MicroTileLen);\n"
+     "\n"
+     "\t\tDrawFloor(target, lightmap, position, Point {} + offset, rows, columns);\n"
+     "\t\tDrawTileContent(target, lightmap, position, Point {} + offset, rows, columns);\n"
+     "\t\tDrawOOB(target, lightmap, position, Point {} + offset, rows, columns);\n"
+     "\t};\n"
+     "#ifdef __amigaos__\n"
+     "\tif (!*GetOptions().Graphics.zoom) {\n"
+     "\t\t// Warp port: only the changed cells (engine/render/amiga_cells.cpp)\n"
+     "\t\tconst uint32_t levelKey = (static_cast<uint32_t>(currlevel) | (static_cast<uint32_t>(setlvlnum) << 8)\n"
+     "\t\t                             | (static_cast<uint32_t>(leveltype) << 16) | (setlevel ? 0x1000000U : 0U))\n"
+     "\t\t    ^ amiga_cells::PtrKey(pDungeonCels.get());\n"
+     "\t\tamiga_cells::DrawScene(out, position.x, position.y, offset.deltaX, offset.deltaY,\n"
+     "\t\t    *GetOptions().Graphics.perPixelLighting, levelKey, drawScene);\n"
+     "\t} else\n"
+     "#endif\n"
+     "\t\tdrawScene(out);\n"),
+    ("Source/qol/itemlabels.cpp",
+     "#include \"itemlabels.h\"\n",
+     "#include \"itemlabels.h\"\n#include \"engine/render/amiga_cells.hpp\"\n"),
+    ("Source/qol/itemlabels.cpp",
+     "void AddItemToLabelQueue(int id, Point position)\n{\n",
+     "void AddItemToLabelQueue(int id, Point position)\n{\n"
+     "#ifdef __amigaos__\n"
+     "\tif (amiga_cells::suppressSideEffects)\n"
+     "\t\treturn;\n"
+     "#endif\n"),
     # Test mode ENV:DIABLO_GOD: the own player takes no damage (measurements
     # in the dungeon without dying). Off unless the variable is set.
     ("Source/player.cpp",

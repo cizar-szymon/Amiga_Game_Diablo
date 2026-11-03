@@ -42,6 +42,7 @@ MSYS_NO_PATHCONV=1 docker run --rm \
         -DNOSOUND=ON \
         -DDEVILUTIONX_SCREENSHOT_FORMAT=DEVILUTIONX_SCREENSHOT_FORMAT_PCX \
         -DSDL2_DIR=/port/sdl/cmake $EXTRA >/work/configure.log || { tail -30 /work/configure.log; exit 1; }
+    rm -f /work/build/devilutionx /out/devilutionx /out/devilutionx.debug
     cmake --build /work/build -j $(nproc) >/work/build.log 2>&1 || true
     grep -E "error|undefined|FAILED|Linking CXX executable" /work/build.log | head -60
     [ -f /work/build/devilutionx ] || exit 1
