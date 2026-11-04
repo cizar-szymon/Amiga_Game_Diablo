@@ -56,6 +56,10 @@ void DrawScene(const Surface &out, int firstTileX, int firstTileY, int offsetX, 
  * knows which parts of the view to send again (msdl_view.c).
  */
 inline bool overlayTrack = false;
+
+/** Counts the game's light recalculations (lighting.cpp ProcessLightList): the
+    scene is drawn directly only while the light keeps changing. */
+inline uint32_t lightChanges = 0;
 void RecordOverlayAbs(const SDL_Surface *surface, int x, int y, int w, int h);
 inline void RecordOverlay(const Surface &out, int x, int y, int w, int h)
 {

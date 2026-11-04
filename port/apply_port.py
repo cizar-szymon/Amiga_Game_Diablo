@@ -595,6 +595,79 @@ CHANGES = [
      "\t\t}\n"
      "#endif\n"
      "\t\tif (isIndexedOutputFormat\n\t\t    || outputSurface->w == static_cast<int>(SVidWidth)\n"),
+    # Option "Light Steps" (user decision 4.11.2026): walking in the dungeon,
+    # the player's light moves smoothly every game tick (UpdatePlayerLightOffset)
+    # and nearly the whole picture changes; with steps it stays on the tile the
+    # player left and jumps on arrival (the game's own ChangeLightXY + offset 0),
+    # so between tiles only the camera moves (cell renderer: cheap). Off = the
+    # original (default), On = always, Auto = when a walk runs below the FPS
+    # threshold (measured once 0.5 s into the walk, kept until the player stops).
+    ("Source/options.h",
+     "enum class FrameRateControl : uint8_t {\n",
+     "enum class LightSteps : uint8_t {\n\tOff,\n\tOn,\n\tAuto,\n};\n\nenum class FrameRateControl : uint8_t {\n"),
+    ("Source/options.h",
+     "\t/** @brief Subtile lighting for smoother light gradients. */\n\tOptionEntryBoolean perPixelLighting;\n",
+     "\t/** @brief Subtile lighting for smoother light gradients. */\n\tOptionEntryBoolean perPixelLighting;\n"
+     "\t/** @brief Warp port: the player's light moves tile by tile when walking (Off / On / Auto). */\n"
+     "\tOptionEntryEnum<LightSteps> lightSteps;\n"
+     "\t/** @brief Warp port: Auto light steps below this frame rate. */\n"
+     "\tOptionEntryInt<int> lightStepsFps;\n"),
+    ("Source/options.cpp",
+     "    , perPixelLighting(\"Per-pixel Lighting\", OptionEntryFlags::None, N_(\"Per-pixel Lighting\"), N_(\"Subtile lighting for smoother light gradients.\"), DEFAULT_PER_PIXEL_LIGHTING)\n",
+     "    , perPixelLighting(\"Per-pixel Lighting\", OptionEntryFlags::None, N_(\"Per-pixel Lighting\"), N_(\"Subtile lighting for smoother light gradients.\"), DEFAULT_PER_PIXEL_LIGHTING)\n"
+     "    , lightSteps(\"Light Steps\", OptionEntryFlags::None, N_(\"Light Steps\"), N_(\"The player's light moves tile by tile when walking (faster walking on slow machines). Auto: when the frame rate is below the threshold.\"), LightSteps::Off,\n"
+     "          {\n"
+     "              { LightSteps::Off, N_(\"Off\") },\n"
+     "              { LightSteps::On, N_(\"On\") },\n"
+     "              { LightSteps::Auto, N_(\"Auto\") },\n"
+     "          })\n"
+     "    , lightStepsFps(\"Light Steps Below FPS\", OptionEntryFlags::None, N_(\"Light Steps Below FPS\"), N_(\"Auto light steps when walking runs below this frame rate.\"), 20, { 15, 20, 25, 30 })\n"),
+    ("Source/options.cpp",
+     "\t\t&perPixelLighting,\n",
+     "\t\t&perPixelLighting,\n\t\t&lightSteps,\n\t\t&lightStepsFps,\n"),
+    ("Source/player.cpp",
+     "void UpdatePlayerLightOffset(Player &player)\n{\n\tif (player.lightId == NO_LIGHT)\n\t\treturn;\n",
+     "#ifdef __amigaos__\n"
+     "extern \"C\" unsigned msdl_recent_fps10(void);\n"
+     "/** Light steps option: true when the light stays on its tile during this step. */\n"
+     "bool AmigaLightSteps()\n"
+     "{\n"
+     "\tconst LightSteps mode = *GetOptions().Graphics.lightSteps;\n"
+     "\tif (mode == LightSteps::Off)\n"
+     "\t\treturn false;\n"
+     "\tif (mode == LightSteps::On)\n"
+     "\t\treturn true;\n"
+     "\t// Auto: one decision per walk (no switching back and forth)\n"
+     "\tstatic uint32_t lastTick, walkStart;\n"
+     "\tstatic bool stepping;\n"
+     "\tconst uint32_t now = SDL_GetTicks();\n"
+     "\tif (now - lastTick > 250) {\n"
+     "\t\twalkStart = now;\n"
+     "\t\tstepping = false;\n"
+     "\t}\n"
+     "\tlastTick = now;\n"
+     "\tif (!stepping && now - walkStart >= 500) {\n"
+     "\t\tconst unsigned fps10 = msdl_recent_fps10();\n"
+     "\t\tif (fps10 != 0 && fps10 < static_cast<unsigned>(*GetOptions().Graphics.lightStepsFps) * 10)\n"
+     "\t\t\tstepping = true;\n"
+     "\t}\n"
+     "\treturn stepping;\n"
+     "}\n"
+     "#endif\n"
+     "\n"
+     "void UpdatePlayerLightOffset(Player &player)\n{\n\tif (player.lightId == NO_LIGHT)\n\t\treturn;\n"
+     "#ifdef __amigaos__\n"
+     "\tif (&player == MyPlayer && AmigaLightSteps())\n"
+     "\t\treturn;\n"
+     "#endif\n"),
+    # The cell renderer learns when the light really changed (direct drawing
+    # only while it keeps changing).
+    ("Source/lighting.cpp",
+     "\tif (!UpdateLighting)\n\t\treturn;\n\tfor (int i = 0; i < ActiveLightCount; i++) {\n",
+     "\tif (!UpdateLighting)\n\t\treturn;\n#ifdef __amigaos__\n\tamiga_cells::lightChanges++;\n#endif\n\tfor (int i = 0; i < ActiveLightCount; i++) {\n"),
+    ("Source/lighting.cpp",
+     "#include \"engine/displacement.hpp\"\n",
+     "#include \"engine/displacement.hpp\"\n#include \"engine/render/amiga_cells.hpp\"\n"),
     # Test mode ENV:DIABLO_GOD: the own player takes no damage (measurements
     # in the dungeon without dying). Off unless the variable is set.
     ("Source/player.cpp",

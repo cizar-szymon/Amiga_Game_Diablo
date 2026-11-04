@@ -309,3 +309,20 @@ strumień 1, każdy z własnym pierścieniem, głośnością i panoramą; inne c
 przez krok do najbliższej próbki). `SoundSample::SetChunkStream` czyta tylko nagłówek (długość dla
 `GetSFXLength` – przewijanie tekstów zadań), plik otwiera się przy odtworzeniu; strumień mowy kończy się
 sam, gdy plik się skończy i pierścień opróżni (`amiga_snd_stream_end`). Odsłuch: do zrobienia.
+
+### Opcja „Light Steps” (światło skokami co płytkę) – 4.11.2026, Amiga 2
+
+- Opcja gry w `[Graphics]` (menu ustawień): `Light Steps` = Off (0, domyślnie, jak oryginał) / On (1) /
+  Auto (2); `Light Steps Below FPS` = 15/20/25/30 (domyślnie 20). Wł.: `UpdatePlayerLightOffset` nie
+  przesuwa światła postaci w trakcie kroku – zostaje na płytce, z której postać wyszła, i przeskakuje przy
+  dojściu (gra sama robi wtedy `ChangeLightXY` i zeruje przesunięcie). Auto: pomiar kl./s
+  (`msdl_recent_fps10`, ostatnie 8 klatek) 0,5 s po początku marszu; poniżej progu – skoki do końca tego
+  marszu (bez przełączania w tę i z powrotem).
+- Renderer: tryb bezpośredni tylko gdy światło zmieniło się w ostatnich 120 ms (licznik
+  `amiga_cells::lightChanges` z `ProcessLightList`); wcześniej zostawał do zatrzymania postaci.
+- Pomiar marszu po lochu (4 kierunki): Off 24,1 / 20,3 / 28,6 / 18,4 kl./s, On 25,3 / 20,3 / 28,8 / 18,9 –
+  **prawie bez zysku**. Klatek bezpośrednich 5–10 zamiast 40–74, ale renderer komórkowy w marszu przerysowuje
+  30–45% komórek: zrzut (`RAM:cells-dump`) pokazuje brudny pas ~7 komórek (224 px) przy krawędzi, w którą
+  wchodzi kamera (przy przesunięciu o 1–2 px), plus pełne przerysowanie po każdym przeskoku światła.
+- Kontrola (`run-vall`, marsz, On): 1 klatka z 3 różnymi pikselami przy dolnej krawędzi widoku (229,337) –
+  do zbadania razem z szerokim pasem przy krawędzi. Przy Off: bez zmian (0 różnic).

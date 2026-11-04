@@ -941,9 +941,24 @@ static int present_incremental(SDL_Surface *s, const SDL_Rect *rects, int numrec
     return 1;
 }
 
+/* Frame rate of the last 8 frames, in tenths (the game's light-steps
+   option, player.cpp): times of the presents in a small ring. */
+static unsigned long fps_ring[8];
+static unsigned fps_n;
+
+unsigned msdl_recent_fps10(void)
+{
+    unsigned long dt;
+    if (fps_n < 8) return 0;
+    dt = fps_ring[(fps_n - 1) & 7] - fps_ring[fps_n & 7];   /* 7 intervals */
+    return dt == 0 ? 0 : (unsigned)(70000UL / dt);
+}
+
 static void present(const SDL_Rect *rects, int numrects)
 {
     SDL_Surface *s;
+    fps_ring[fps_n & 7] = amiga_now_ms();
+    fps_n++;
     const Uint8 *pixels;
     int w, h, pitch, lw, y0, y1, by, full = 0, i;
     SDL_Palette *pal;

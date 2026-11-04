@@ -583,7 +583,17 @@ void DrawScene(const Surface &out, int firstTileX, int firstTileY, int offsetX, 
 	// the copy. While the camera moves and the last frame was (nearly) all
 	// dirty, draw straight into the game's buffer as the game does; the first
 	// frame with the camera still records again.
-	if (lightMoves && (camX != prevCamX || camY != prevCamY) && lastDirtyShare >= directShare && !Env(envVerify, "DIABLO_VERIFY_RENDER")
+	// ... but only while the light keeps changing (a change in the last ~120 ms,
+	// lighting.cpp): with the light-steps option it stays still between tiles
+	// and the camera alone moves - then the cells reuse nearly everything.
+	static uint32_t seenLightChanges, lightChangedMs;
+	const uint32_t nowMs = SDL_GetTicks();
+	if (lightChanges != seenLightChanges) {
+		seenLightChanges = lightChanges;
+		lightChangedMs = nowMs;
+	}
+	const bool lightRecent = lightMoves && nowMs - lightChangedMs < 120;
+	if (lightRecent && (camX != prevCamX || camY != prevCamY) && lastDirtyShare >= directShare && !Env(envVerify, "DIABLO_VERIFY_RENDER")
 	    && !Env(envNoDirect, "DIABLO_NODIRECT")) {
 		static int d4[512 * 4];
 		suppressSideEffects = false;
