@@ -407,3 +407,13 @@ Krok B (bez kopii sceny do bufora gry przy ruchu kamery): **nie robimy** (decyzj
   polski, angielski i niemiecki sprawdzone (menu, wybór postaci). Tłumaczenie z katalogu `assets` było
   czytane osobnym `seek` + `read` dla każdego napisu: de.gmo 13 094 ms (szary ekran przez cały ten
   czas), teraz cały plik naraz: 113 ms.
+
+### Polskie głosy (4.11.2026)
+
+DevilutionX czyta paczkę głosów `<język>.mpq` z katalogów MPQ. Polski dubbing (zawodowi aktorzy, WiAParker):
+`pl.mpq` z https://github.com/diasurgical/devilutionx-assets/releases (40 MB) – nagrania są w MP3, a
+dźwięk portu gra tylko WAV (dekodowanie MP3 kosztowałoby 15–20% CPU w rozmowie). `tools/voicepack/convert.sh`
+wyciąga z niej każde nagranie znane grze (`effects*.tsv`, `.mp3`), zamienia `ffmpeg` na WAV 8 bit mono
+22 050 Hz (format oryginału) i pakuje (mpqfs writer) pod nazwą `.wav`: 355 nagrań, 93 MB
+(`private/voice/pl-wav.mpq`, poza gitem). Na Amidze 2 w `WorkSD:Games/DiabloWarp/save/pl.mpq` (katalog
+zapisów jest na liście katalogów MPQ). Niemieckiego `de.mpq` w oficjalnych zasobach nie ma (404).
