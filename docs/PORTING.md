@@ -12,8 +12,8 @@
 | 5. Pomiar i optymalizacja | ✅ 4.11: renderer komórkowy, pętle asm, VRAM/blitter, FindPath; Amiga 2 100 MHz: Tristram 91 / marsz 47–66, loch walka 46, marsz 17–26 kl./s (stary port 11–17) |
 | 5a. Dźwięk: efekty, muzyka, mowa (Paula, ~1–3,5% CPU), polskie głosy (`pl.mpq` przerobiony na WAV) | ✅ 4.11 |
 | 5b. Ikona z Tool Types, stos 1 000 000 (także z ikony), języki pl/en/de, filmy 2× | ✅ 4.11 |
-| 6. Standard klawiszy (P pauza, Esc), F10 zapis stanu do zgłoszeń, numer wersji 0.xx | ⏳ |
-| 7. Wydanie: opisy PL/EN (gracz, dev), historia wydań, `releases/amiga`, ZIP, README | ⏳ |
+| 6. Standard klawiszy (P pauza, Esc), F10 raport do `RAM:Diablo-report`, numer wersji 0.46 (`port/VERSION`, menu, `$VER`) | ✅ (menu i F10 do sprawdzenia na Amidze) |
+| 7. Wydanie 0.46: opisy PL/EN, historia wydań, `tools/make_release.sh` → `releases/amiga`, ZIP (sprawdzony `UnZip` na Amidze 2), README, LICENSE | ✅ lokalnie; GitHub `cizar-szymon/Amiga_Game_Diablo` czeka na zgodę |
 
 ## Decyzje (3.11.2026, zaakceptowane przez użytkownika)
 
