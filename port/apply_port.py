@@ -333,6 +333,42 @@ CHANGES = [
     ("Source/engine/render/scrollrt.cpp",
      "\t\t\t\tif (leveltype == DTYPE_TOWN) {\n\t\t\t\t\tworld_draw_black_tile(out, targetBufferPosition.x, targetBufferPosition.y);\n\t\t\t\t} else {\n\t\t\t\t\tDrawDirtTile(out, lightmap, tilePosition, targetBufferPosition);\n\t\t\t\t}\n",
      "\t\t\t\tif (!AMIGA_TILE()) {\n\t\t\t\t} else if (leveltype == DTYPE_TOWN) {\n\t\t\t\t\tworld_draw_black_tile(out, targetBufferPosition.x, targetBufferPosition.y);\n\t\t\t\t} else {\n\t\t\t\t\tDrawDirtTile(out, lightmap, tilePosition, targetBufferPosition);\n\t\t\t\t}\n"),
+    # Path finding: posOk of a tile is asked from up to 8 neighbours; its
+    # answer does not change during one search, so it is remembered (stamped
+    # 256x256 table). Same paths (tools/pathtest.sh).
+    ("Source/engine/path.cpp",
+     "\t\t\tconst bool ok = posOk(neighborPos);\n",
+     "#ifdef __amigaos__\n"
+     "\t\t\tbool ok;\n"
+     "\t\t\t{\n"
+     "\t\t\t\tconst uint16_t r = static_cast<uint16_t>((neighborPos.x << 8) | neighborPos.y);\n"
+     "\t\t\t\tif (posOkStamp[r] == posOkCall) {\n"
+     "\t\t\t\t\tok = posOkValue[r] != 0;\n"
+     "\t\t\t\t} else {\n"
+     "\t\t\t\t\tok = posOk(neighborPos);\n"
+     "\t\t\t\t\tposOkStamp[r] = posOkCall;\n"
+     "\t\t\t\t\tposOkValue[r] = ok ? 1 : 0;\n"
+     "\t\t\t\t}\n"
+     "\t\t\t}\n"
+     "#else\n"
+     "\t\t\tconst bool ok = posOk(neighborPos);\n"
+     "#endif\n"),
+    ("Source/engine/path.cpp",
+     "int FindPath(tl::function_ref<bool(Point, Point)> canStep, tl::function_ref<bool(Point)> posOk, Point startPosition, Point destinationPosition, int8_t *path, size_t maxPathLength)\n{\n",
+     "#ifdef __amigaos__\n"
+     "namespace {\n"
+     "uint16_t posOkStamp[65536];\n"
+     "uint8_t posOkValue[65536];\n"
+     "uint16_t posOkCall = 0;\n"
+     "} // namespace\n"
+     "#endif\n"
+     "int FindPath(tl::function_ref<bool(Point, Point)> canStep, tl::function_ref<bool(Point)> posOk, Point startPosition, Point destinationPosition, int8_t *path, size_t maxPathLength)\n{\n"
+     "#ifdef __amigaos__\n"
+     "\tif (++posOkCall == 0) {\n"
+     "\t\tstd::fill(std::begin(posOkStamp), std::end(posOkStamp), 0);\n"
+     "\t\tposOkCall = 1;\n"
+     "\t}\n"
+     "#endif\n"),
     # Test mode ENV:DIABLO_GOD: the own player takes no damage (measurements
     # in the dungeon without dying). Off unless the variable is set.
     ("Source/player.cpp",

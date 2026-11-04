@@ -60,7 +60,9 @@ DirtyRect fullRect;
 
 int envFull = -1, envVerify = -1, envStats = -1, envNoGuard = -1, envNoSkip = -1;
 bool noSkip = false;
-int envClear = -1;
+int envClear = -1, envNoDirect = -1;
+/** direct draw while the camera moves when the last frame had at least this share dirty (%) */
+int directShare = 80;
 
 // statistics
 unsigned long stFrames, stFull, stDirty, stCells, stRects, stRecord, stRender, stCopy, stShift, stT0;
@@ -581,7 +583,8 @@ void DrawScene(const Surface &out, int firstTileX, int firstTileY, int offsetX, 
 	// the copy. While the camera moves and the last frame was (nearly) all
 	// dirty, draw straight into the game's buffer as the game does; the first
 	// frame with the camera still records again.
-	if (lightMoves && (camX != prevCamX || camY != prevCamY) && lastDirtyShare >= 80 && !Env(envVerify, "DIABLO_VERIFY_RENDER")) {
+	if (lightMoves && (camX != prevCamX || camY != prevCamY) && lastDirtyShare >= directShare && !Env(envVerify, "DIABLO_VERIFY_RENDER")
+	    && !Env(envNoDirect, "DIABLO_NODIRECT")) {
 		static int d4[512 * 4];
 		suppressSideEffects = false;
 		drawScene(out);
