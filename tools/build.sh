@@ -23,7 +23,7 @@ MSYS_NO_PATHCONV=1 docker run --rm \
   -v "$ROOT/port:/port:ro" \
   -v $VOL:/work \
   -v "$ROOT/build/amiga:/out" \
-  -e EXTRA="$EXTRA" -e CFLAGS68K="$CFLAGS68K" \
+  -e EXTRA="$EXTRA" -e CFLAGS68K="$CFLAGS68K" -e APPLY_SKIP="$APPLY_SKIP" \
   $IMG sh -c '
     set -e
     # upstream copied once (clean to refresh); our changes re-applied every time

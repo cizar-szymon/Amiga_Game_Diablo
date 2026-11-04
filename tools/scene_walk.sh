@@ -6,6 +6,7 @@
 cd "$(dirname "$0")/.."
 test -f build/amiga/devilutionx || { echo "no build/amiga/devilutionx"; exit 1; }
 R="python tools/amiga_remote.py"
+sh tools/restore_saves.sh
 case "$1" in
   town) HERO="2500 click 410 296"; MAP="22000 mark start" ;;
   *) HERO="2500 click 410 270"; MAP="25000 key tab" ;;

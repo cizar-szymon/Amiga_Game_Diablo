@@ -6,6 +6,7 @@
 cd "$(dirname "$0")/.."
 test -f build/amiga/devilutionx || { echo "no build/amiga/devilutionx"; exit 1; }
 R="python tools/amiga_remote.py"
+sh tools/restore_saves.sh
 $R put build/amiga/devilutionx WorkSD:Games/DiabloWarp/devilutionx >/dev/null
 $R put tools/amiga/${RUNSCRIPT:-run-vrender} WorkSD:Games/DiabloWarp/${RUNSCRIPT:-run-vrender} >/dev/null
 $R start "Execute WorkSD:Games/DiabloWarp/${RUNSCRIPT:-run-vrender}" >/dev/null

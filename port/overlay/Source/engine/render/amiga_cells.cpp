@@ -57,11 +57,13 @@ DirtyRect rects[GridW * GridH];
 int numRects = 0;
 DirtyRect fullRect;
 
-int envFull = -1, envVerify = -1, envStats = -1, envNoGuard = -1;
+int envFull = -1, envVerify = -1, envStats = -1, envNoGuard = -1, envNoSkip = -1;
+bool noSkip = false;
 
 // statistics
 unsigned long stFrames, stFull, stDirty, stCells, stRects, stRecord, stRender, stCopy, stShift, stT0;
 unsigned long vFrames, vBad;
+unsigned long stTilesSkipped, stTilesVisited;
 extern unsigned long stRecentre;
 extern unsigned long stDirect;
 unsigned long guardCount;
@@ -410,6 +412,9 @@ void Stats(unsigned long now)
 	if (now - stT0 < 5000 * perMs || stFrames == 0)
 		return;
 	const unsigned long f = stFrames;
+	if (stTilesVisited != 0)
+		SDL_Log("cells: render pass skipped %lu%% of %lu tile visits/frame", stTilesSkipped * 100 / stTilesVisited, stTilesVisited / f);
+	stTilesSkipped = stTilesVisited = 0;
 	SDL_Log("cells: %lu frames, %lu direct, %lu recentred, %lu full, %lu partial copies, dirty %lu%%, %lu rects/frame; ms/frame record %lu.%lu shift %lu.%lu render %lu.%lu copy %lu.%lu",
 	    f, stDirect, stRecentre, stFull, stPartial, stCells != 0 ? stDirty * 100 / stCells : 0, stRects / f,
 	    stRecord / perMs / f, (stRecord * 10 / perMs / f) % 10, stShift / perMs / f, (stShift * 10 / perMs / f) % 10,
@@ -420,8 +425,25 @@ void Stats(unsigned long now)
 
 } // namespace
 
+namespace {
+constexpr int MaxTiles = 4096;
+struct Box {
+	int x0, y0, x1, y1;
+};
+Box tileBox[MaxTiles];
+int curTile = -1;
+bool tileOverflow = false;
+} // namespace
+
 void RecordPrimitive(int x, int y, int w, int h, uint32_t k1, uint32_t k2, uint32_t k3)
 {
+	if (curTile >= 0 && curTile < MaxTiles) {
+		Box &b = tileBox[curTile];
+		if (x < b.x0) b.x0 = x;
+		if (y < b.y0) b.y0 = y;
+		if (x + w > b.x1) b.x1 = x + w;
+		if (y + h > b.y1) b.y1 = y + h;
+	}
 	Grid &g = grids[cur];
 	const int wx = x + camX, wy = y + camY;
 	int cx0 = FloorDiv(wx, Cell) - g.bx;
@@ -481,6 +503,32 @@ void OverlayAll()
 SDL_Surface *TileScratch()
 {
 	return EnsureGuarded(scratchG, 64, 64);
+}
+
+
+bool BeginTileSlow()
+{
+	++curTile;
+	if (curTile >= MaxTiles) {
+		if (mode == Mode::Record)
+			tileOverflow = true;
+		return true;
+	}
+	if (mode == Mode::Record) {
+		tileBox[curTile] = { 0x7FFF, 0x7FFF, -0x8000, -0x8000 };
+		return true;
+	}
+	stTilesVisited++;
+	if (tileOverflow || noSkip)
+		return true;
+	const Box &b = tileBox[curTile];
+	for (int i = 0; i < numRects; i++) {
+		const DirtyRect &r = rects[i];
+		if (b.x0 < r.x + r.w && b.x1 > r.x && b.y0 < r.y + r.h && b.y1 > r.y)
+			return true;
+	}
+	stTilesSkipped++;
+	return false;
 }
 
 const DirtyRect *GetDirtyRects(int &count)
@@ -550,6 +598,9 @@ void DrawScene(const Surface &out, int firstTileX, int firstTileY, int offsetX, 
 			g.h[y][x] = HashInit;
 	sceneOX = originX;
 	sceneOY = originY;
+	curTile = -1;
+	tileOverflow = false;
+	noSkip = Env(envNoSkip, "DIABLO_NOSKIP");
 	mode = Mode::Record;
 	drawScene(SceneSurface());
 	mode = Mode::Off;
@@ -584,6 +635,7 @@ void DrawScene(const Surface &out, int firstTileX, int firstTileY, int offsetX, 
 		for (int i = 0; i < numRects; i++)
 			ClearScene(rects[i]);
 		traceGuard = Env(envVerify, "DIABLO_VERIFY_RENDER");
+		curTile = -1;
 		mode = Mode::Render;
 		drawScene(SceneSurface());
 		mode = Mode::Off;

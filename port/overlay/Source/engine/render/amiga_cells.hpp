@@ -64,6 +64,18 @@ inline void RecordOverlay(const Surface &out, int x, int y, int w, int h)
 /** Something covers / changes the whole view this frame (automap, panels, menus). */
 void OverlayAll();
 
+/**
+ * Every tile visit of the scene (floor, tile content, out of bounds) starts
+ * with BeginTile(). The record pass notes the area all primitives of the
+ * visit cover; the render pass skips a visit whose area misses every dirty
+ * rectangle - with all its game logic. Same order in both passes.
+ */
+bool BeginTileSlow();
+inline bool BeginTile()
+{
+	return mode == Mode::Off ? true : BeginTileSlow();
+}
+
 /** Record pass: a primitive covering x,y,w,h (absolute scene coordinates). */
 void RecordPrimitive(int x, int y, int w, int h, uint32_t k1, uint32_t k2, uint32_t k3);
 /** Render pass: the dirty rectangles (absolute scene coordinates). */

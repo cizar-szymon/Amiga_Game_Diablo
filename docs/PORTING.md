@@ -159,3 +159,20 @@ Testy: `sh tools/verify_all.sh <etykieta>` (wszystkie kontrole + Avail), pomiary
 - Zacięcia w marszu: szukanie drogi (A*, do ~3000 pól, gdy cel za ścianą) – lista odwiedzonych pól z liniowym
   szukaniem w kubełkach; teraz indeks 256×256 i heurystyka w węźle: te same ścieżki
   (`tools/pathtest.sh`: 16 000 wyszukiwań, identyczny wynik), najdłuższa klatka 2,6 s → 0,47 s.
+
+### Pomijanie płytek w przebiegu rysowania (4.11.2026)
+
+Przebieg zapisu notuje dla każdej odwiedzonej płytki prostokąt jej prymitywów; przebieg rysowania
+pomija płytki, które nie dotykają brudnego prostokąta (78–85% odwiedzin), razem z ich logiką.
+`DIABLO_NOSKIP` wyłącza (A/B: loch 21,1 → 23,5 kl./s).
+
+**Uwaga do pomiarów:** gra zapisuje stan przy wyjściu, więc wcześniejsze pomiary w lochu nie startowały
+z tego samego stanu. Od teraz `tools/restore_saves.sh` przed każdym testem (kopie `single_0.sv.bak`,
+`single_1.sv.bak`). Wyniki od stałego stanu (Amiga 1, ta sama binarka, `DIABLO_FULL` = pełne rysowanie
+z narzutem zapisu):
+
+| Scena | pełne | komórkowe |
+|---|---|---|
+| loch, walka w miejscu | 11,3 kl./s (88 ms) | **23,5 (42 ms)** |
+| Tristram, postój | 17,8 (56 ms) | **40,1 (24 ms)** |
+| Tristram, marsz | 17,3 (57 ms) | **29,2 (34 ms)** |
