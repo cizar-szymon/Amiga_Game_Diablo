@@ -12,25 +12,34 @@ for line in open(syms, encoding='latin-1'):
         addrs.append(int(parts[0], 16))
         names.append(parts[2])
 count = collections.Counter()
-head = ''
+missed = collections.Counter()
+head = []
 for line in open(prof):
     if line.startswith('#'):
-        head = line.strip()
+        head.append(line.strip())
+        continue
+    if line.startswith('m '):
+        # outside the game code: absolute PC, summed per 64 KB
+        missed[int(line[2:], 16) & ~0xFFFF] += 1
         continue
     off = int(line, 16)
     i = bisect.bisect_right(addrs, off) - 1
     count[names[i] if i >= 0 else '?'] += 1
 total = sum(count.values()) or 1
-print(head)
+print('\n'.join(head))
 for name, n in count.most_common(top):
     print(f'{100.0 * n / total:6.1f}% {n:6d}  {name[:110]}')
+if missed:
+    print('outside the game code (64 KB blocks):')
+    for a, n in missed.most_common(12):
+        print(f'  {a:08x} {n}')
 
 # Optional 4th argument: a function name; prints its hottest addresses.
 if len(sys.argv) > 4:
     fn = sys.argv[4]
     hot = collections.Counter()
     for line in open(prof):
-        if line.startswith('#'):
+        if line.startswith('#') or line.startswith('m '):
             continue
         off = int(line, 16)
         i = bisect.bisect_right(addrs, off) - 1

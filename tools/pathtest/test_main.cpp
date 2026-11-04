@@ -8,7 +8,7 @@ namespace devilution {
 }
 using namespace devilution;
 // the Warp port's path.cpp counts searches for the stats line
-extern "C" { unsigned long msdl_counter[8]; unsigned long amiga_eclock(void) { return 0; } }
+extern "C" { unsigned long msdl_counter[10]; unsigned long amiga_eclock(void) { return 0; } }
 static uint8_t wall[112][112];
 static uint32_t rng = 12345;
 static uint32_t R() { rng = rng * 1103515245u + 12345u; return rng >> 8; }

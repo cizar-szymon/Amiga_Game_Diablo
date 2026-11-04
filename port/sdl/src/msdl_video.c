@@ -72,7 +72,7 @@ void msdl_stats_toggle(void)
     msdl_logf(SDL_LOG_PRIORITY_INFO, "stats: %s", stats_on ? "on" : "off");
 }
 
-unsigned long msdl_counter[8];
+unsigned long msdl_counter[10];
 
 static void stats_frame(unsigned long t_start, unsigned long t_end)
 {
@@ -109,6 +109,9 @@ static void stats_frame(unsigned long t_start, unsigned long t_end)
                       msdl_counter[4] / f, msdl_counter[6] / f, msdl_counter[5] / f, msdl_counter[7] / f);
             msdl_counter[4] = msdl_counter[5] = msdl_counter[6] = msdl_counter[7] = 0;
         }
+        msdl_logf(SDL_LOG_PRIORITY_INFO, "stats: clock %lu ms reads, %lu E-clock reads per frame", msdl_counter[8] / f,
+                  msdl_counter[9] / f);
+        msdl_counter[8] = msdl_counter[9] = 0;
         st_panel_full = 0;
         stats_t0 = t_end;
         stats_frames = 0;
@@ -777,6 +780,23 @@ static void inc_send(int x, int y, int w, int h)
     if (x1 <= x || y1 <= y) return;
     inc_lock_now();
     if (inc_mem == NULL) return;
+    {
+        /* wide areas: whole 16-byte lines with MOVE16 (WarpBench: Fast ->
+           VRAM 40% faster than long moves). The frame is the truth around
+           the area too, so rounding the columns out is harmless. MOVE16
+           reads memory, not the data cache: the area is pushed first. */
+        int mx = x & ~15, mx1 = (x1 + 15) & ~15;
+        const UBYTE *p0 = (const UBYTE *)inc_s->pixels + y * inc_s->pitch;
+        if (mx1 > inc_s->w) mx1 = inc_s->w & ~15;
+        if (mx1 - mx >= 128 && mx1 >= x1 &&
+            ((((unsigned long)p0 | (unsigned long)inc_s->pitch | (unsigned long)inc_mem | (unsigned long)inc_bpr) & 15) == 0)) {
+            CacheClearE((APTR)p0, (ULONG)inc_s->pitch * (y1 - y), CACRF_ClearD);
+            copy_rows_move16(inc_mem + (LONG)y * inc_bpr + mx, inc_bpr, p0 + mx, inc_s->pitch, (mx1 - mx) >> 4, y1 - y);
+            st_bands++;
+            st_bytes += (unsigned long)(mx1 - mx) * (y1 - y);
+            return;
+        }
+    }
     for (j = y; j < y1; j++) {
         ULONG *d = (ULONG *)(inc_mem + (LONG)j * inc_bpr + x);
         const ULONG *sl = (const ULONG *)((const UBYTE *)inc_s->pixels + j * inc_s->pitch + x);

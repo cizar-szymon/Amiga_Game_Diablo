@@ -299,7 +299,7 @@ static void map_checked(unsigned char *dst, const unsigned char *src, unsigned n
     if ((v_calls & 0xFFFF) == 0) msdl_logf(SDL_LOG_PRIORITY_INFO, "blit: %lu calls checked, %lu bad", v_calls, v_bad);
 }
 
-extern unsigned long msdl_counter[8];
+extern unsigned long msdl_counter[10];
 
 static void map_c(unsigned char *dst, const unsigned char *src, unsigned n, const unsigned char *map)
 {

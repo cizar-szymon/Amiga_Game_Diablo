@@ -408,7 +408,7 @@ CHANGES = [
      "uint8_t posOkValue[65536];\n"
      "uint16_t posOkCall = 0;\n"
      "} // namespace\n"
-     "extern \"C\" unsigned long msdl_counter[8];\n"
+     "extern \"C\" unsigned long msdl_counter[10];\n"
      "extern \"C\" unsigned long amiga_eclock(void);\n"
      "struct AmigaPathTimer {\n\tunsigned long t0 = amiga_eclock();\n\t~AmigaPathTimer() { msdl_counter[2] += amiga_eclock() - t0; }\n};\n"
      "namespace {\n"

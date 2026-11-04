@@ -27,7 +27,9 @@ extern char _stext[];            /* start of the code hunk (__stext) */
 #define CODE_MAX    0x01000000UL
 
 static ULONG *samples;
-static volatile ULONG nsamples, nother, nmiss;
+static volatile ULONG nsamples, nother, nmiss, nnoframe;
+#define MAX_MISSED 50000
+static ULONG *missed;
 static struct Task *game_task;
 static struct Interrupt prof_int;
 static int prof_on, prof_checked;
@@ -59,11 +61,15 @@ void msdl_prof_sample(UWORD *sp)
             ULONG pc = ((ULONG)sp[i + 1] << 16) | sp[i + 2];
             ULONG off = pc - (ULONG)_stext;
             if (off < CODE_MAX && nsamples < MAX_SAMPLES) samples[nsamples++] = off;
-            else nmiss++;
+            else {
+                if (nmiss < MAX_MISSED && missed != NULL) missed[nmiss] = pc;
+                nmiss++;
+            }
             return;
         }
     }
-    nmiss++;
+    /* no user-mode frame: the task was in supervisor mode (an OS call) */
+    nnoframe++;
 }
 
 static void prof_stop(void)
@@ -80,6 +86,8 @@ static void prof_stop(void)
         fprintf(f, "# samples %lu, other tasks %lu, missed %lu\n", (unsigned long)nsamples, (unsigned long)nother,
                 (unsigned long)nmiss);
         for (i = 0; i < nsamples; i++) fprintf(f, "%lx\n", (unsigned long)samples[i]);
+        fprintf(f, "# outside the game code (absolute PCs), %lu without a user-mode frame\n", (unsigned long)nnoframe);
+        for (i = 0; i < nmiss && i < MAX_MISSED && missed != NULL; i++) fprintf(f, "m %lx\n", (unsigned long)missed[i]);
         fclose(f);
     }
 }
@@ -88,8 +96,9 @@ static void prof_begin(void)
 {
     static int registered;
     if (samples == NULL) samples = (ULONG *)malloc(MAX_SAMPLES * sizeof(ULONG));
+    if (missed == NULL) missed = (ULONG *)malloc(MAX_MISSED * sizeof(ULONG));
     if (samples == NULL) return;
-    nsamples = nother = nmiss = 0;
+    nsamples = nother = nmiss = nnoframe = 0;
     game_task = FindTask(NULL);
     prof_int.is_Node.ln_Type = NT_INTERRUPT;
     prof_int.is_Node.ln_Pri = 127;

@@ -9,6 +9,7 @@
 struct Device *TimerBase;
 static struct timerequest tr;
 static ULONG per_ms;
+extern unsigned long msdl_counter[10];  /* [8] ms clock reads, [9] E-clock reads (stats) */
 
 unsigned long amiga_now_ms(void)
 {
@@ -16,6 +17,7 @@ unsigned long amiga_now_ms(void)
     ULONG hi, lo, r, q;
     int b;
 
+    msdl_counter[8]++;
     if (TimerBase == NULL) {
         if (OpenDevice((CONST_STRPTR)TIMERNAME, UNIT_ECLOCK,
                        (struct IORequest *)&tr, 0) != 0)
@@ -55,6 +57,7 @@ unsigned long amiga_eclock(void)
     struct EClockVal ev;
     if (TimerBase == NULL) amiga_now_ms();
     if (TimerBase == NULL) return 0;
+    msdl_counter[9]++;
     ReadEClock(&ev);
     return ev.ev_lo;
 }
