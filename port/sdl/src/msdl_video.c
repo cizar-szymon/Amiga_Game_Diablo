@@ -73,6 +73,7 @@ void msdl_stats_toggle(void)
 }
 
 unsigned long msdl_counter[10];
+void amiga_snd_stats(unsigned long *ticks, unsigned long *buffers, unsigned long *gaps);
 
 static void stats_frame(unsigned long t_start, unsigned long t_end)
 {
@@ -108,6 +109,19 @@ static void stats_frame(unsigned long t_start, unsigned long t_end)
             msdl_logf(SDL_LOG_PRIORITY_INFO, "stats: map %lu px in %lu calls, blend %lu px in %lu calls per frame",
                       msdl_counter[4] / f, msdl_counter[6] / f, msdl_counter[5] / f, msdl_counter[7] / f);
             msdl_counter[4] = msdl_counter[5] = msdl_counter[6] = msdl_counter[7] = 0;
+        }
+        {
+            /* sound mixer (amiga_sound.c): share of the time, gaps */
+            static unsigned long s_ticks0, s_bufs0, s_gaps0;
+            unsigned long st, sb, sg;
+            amiga_snd_stats(&st, &sb, &sg);
+            if (sb != s_bufs0)
+                msdl_logf(SDL_LOG_PRIORITY_INFO, "stats: sound mixing %lu.%lu%% CPU, %lu buffers, %lu gaps",
+                          (st - s_ticks0) * 100 / per_ms / ms, ((st - s_ticks0) * 1000 / per_ms / ms) % 10, sb - s_bufs0,
+                          sg - s_gaps0);
+            s_ticks0 = st;
+            s_bufs0 = sb;
+            s_gaps0 = sg;
         }
         msdl_logf(SDL_LOG_PRIORITY_INFO, "stats: clock %lu ms reads, %lu E-clock reads per frame", msdl_counter[8] / f,
                   msdl_counter[9] / f);

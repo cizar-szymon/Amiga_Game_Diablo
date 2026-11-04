@@ -266,3 +266,18 @@ dokłada dane z MPQ do bufora ~1–2 s (czytnik MPQ nie jest dla dwóch zadań).
 
 Zapis bajtami do Chip RAM kosztował sam ~2,2% (44 tys. zapisów/s). Typowo 4–8 głosów: **2–3% CPU**
 (w walce ~1–1,5 kl./s). Dalej możliwa pętla w asm.
+
+### Dźwięk, krok 1: efekty (4.11.2026, Amiga 1)
+
+- `port/sdl/src/amiga_sound.c`: proces „DevilutionX audio” (priorytet 10), Paula 2 kanały 22 030 Hz,
+  4 bufory po 512 próbek w Chip RAM, 16 głosów, mikser v2 z `mixbench`. Głos po zajęciu wszystkich:
+  najstarszy niezapętlony. `ENV:DIABLO_NOSOUND` wyłącza.
+- `port/overlay/Source/utils/soundsample_amiga.cpp`: WAV → 8-bit ze znakiem mono 22 050 Hz przy wczytaniu,
+  głośność i panorama według wzorów `soundsample.cpp`; `engine/sound_amiga.cpp` zamiast `sound.cpp`
+  (bez SDL_audiolib); `effects.cpp` gry bez zmian. Build dalej z `NOSOUND` (bez wideo z dźwiękiem).
+  Mowa na razie wczytywana w całości przy odtworzeniu; muzyka – krok 2.
+- Walka w lochu: miksowanie **0,9–1,4% CPU, 0 przerw**; 47,2 kl./s z dźwiękiem, 48,5 bez
+  (`tools/scene_dungeon_snd.sh`: z dźwiękiem poziom wczytuje się 20,6 s zamiast 16,3 s – efekty z MPQ –
+  więc klawisze skryptu idą 4,3 s później, inaczej to inny moment walki). Odsłuch: do zrobienia.
+- Zapisy testowe z Amigi 1 (`WorkSD:Games/DiabloWarp/save`, z kopiami `.bak`) leżą na PC w
+  `private/amiga1-DiabloWarp/save` (przeprowadzka na Amigę 2).

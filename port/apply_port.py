@@ -528,6 +528,41 @@ CHANGES = [
      "\t\t\t}\n"
      "\t\t}\n"
      "#endif\n"),
+    # ---- sound on Paula (port/sdl/src/amiga_sound.c): the build keeps
+    # NOSOUND (no SDL_audiolib, no video sound), but the sound library is the
+    # game's effects.cpp with our engine/sound_amiga.cpp and
+    # utils/soundsample_amiga.cpp (overlay) instead of the stubs ----
+    ("Source/CMakeLists.txt",
+     "  add_devilutionx_object_library(libdevilutionx_sound\n    effects_stubs.cpp\n    engine/sound_stubs.cpp\n  )\n",
+     "  add_devilutionx_object_library(libdevilutionx_sound\n    effects.cpp\n    engine/sound_amiga.cpp\n    utils/soundsample_amiga.cpp\n  )\n"),
+    ("Source/engine/sound.h",
+     "#ifndef NOSOUND\n#ifdef USE_SDL3\nstruct MIX_Mixer;\n#endif\n",
+     "#if !defined(NOSOUND) || defined(__amigaos__)\n#ifdef USE_SDL3\nstruct MIX_Mixer;\n#endif\n"),
+    ("Source/engine/sound.h",
+     "#ifndef NOSOUND\n\tSoundSample DSB;\n",
+     "#if !defined(NOSOUND) || defined(__amigaos__)\n\tSoundSample DSB;\n"),
+    ("Source/minitext.cpp",
+     "#ifndef NOSOUND\n\tuint32_t sfxFrames = GetSFXLength(nSFX);\n",
+     "#if !defined(NOSOUND) || defined(__amigaos__)\n\tuint32_t sfxFrames = GetSFXLength(nSFX);\n"),
+    ("Source/utils/soundsample.h",
+     "#else\n\t\treturn stream_ != nullptr;\n#endif\n",
+     "#elif defined(__amigaos__)\n\t\treturn pcm_ != nullptr;\n#else\n\t\treturn stream_ != nullptr;\n#endif\n"),
+    ("Source/utils/soundsample.h",
+     "#else\n\tstd::unique_ptr<Aulib::Stream> stream_;\n#endif\n",
+     "#elif defined(__amigaos__)\n"
+     "\t// Warp port: signed 8-bit mono 22050 Hz samples for the Paula mixer\n"
+     "\tArraySharedPtr<std::uint8_t> pcm_;\n"
+     "\tlong pcmLen_ = 0;\n"
+     "\tint voice_ = 0;\n"
+     "\tint volume_ = 64;\n"
+     "\tint gainL_ = 256, gainR_ = 256;\n"
+     "\tbool muted_ = false;\n"
+     "\tvoid VoiceVolumes(int &vl, int &vr) const;\n"
+     "\n"
+     "public:\n"
+     "\t/** Warp port: plays once more on a voice of its own (the sound may already be playing). */\n"
+     "\tbool PlayNew(int logSoundVolume, int logUserVolume, int logPan);\n"
+     "#else\n\tstd::unique_ptr<Aulib::Stream> stream_;\n#endif\n"),
     # Test mode ENV:DIABLO_GOD: the own player takes no damage (measurements
     # in the dungeon without dying). Off unless the variable is set.
     ("Source/player.cpp",
