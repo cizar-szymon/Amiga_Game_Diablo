@@ -72,6 +72,8 @@ void msdl_stats_toggle(void)
     msdl_logf(SDL_LOG_PRIORITY_INFO, "stats: %s", stats_on ? "on" : "off");
 }
 
+unsigned long msdl_counter[4];
+
 static void stats_frame(unsigned long t_start, unsigned long t_end)
 {
     unsigned long per_ms = amiga_eclock_per_ms();
@@ -95,6 +97,12 @@ static void stats_frame(unsigned long t_start, unsigned long t_end)
                   f * 1000 / ms, (f * 10000 / ms) % 10, ms / f, stats_max / per_ms,
                   stats_present / per_ms / f, (stats_present * 10 / per_ms / f) % 10,
                   (st_bytes - stats_bytes0) / 1024 / f, st_panel_full);
+        if (msdl_counter[0] != 0) {
+            /* FindPath (Warp port measurement): calls, nodes, time per frame */
+            msdl_logf(SDL_LOG_PRIORITY_INFO, "stats: path %lu calls, %lu nodes, %lu us per frame, %lu early no-path",
+                      msdl_counter[0] / f, msdl_counter[1] / f, msdl_counter[2] * 1000 / per_ms / f, msdl_counter[3]);
+            msdl_counter[0] = msdl_counter[1] = msdl_counter[2] = msdl_counter[3] = 0;
+        }
         st_panel_full = 0;
         stats_t0 = t_end;
         stats_frames = 0;
