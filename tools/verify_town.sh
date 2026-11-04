@@ -7,16 +7,16 @@ cd "$(dirname "$0")/.."
 test -f build/amiga/devilutionx || { echo "no build/amiga/devilutionx"; exit 1; }
 R="python tools/amiga_remote.py"
 sh tools/restore_saves.sh
-$R put build/amiga/devilutionx WorkSD:Games/DiabloWarp/devilutionx >/dev/null
-$R put tools/amiga/${RUNSCRIPT:-run-vrender} WorkSD:Games/DiabloWarp/${RUNSCRIPT:-run-vrender} >/dev/null
-$R start "Execute WorkSD:Games/DiabloWarp/${RUNSCRIPT:-run-vrender}" >/dev/null
+$R put build/amiga/devilutionx WorkSD:Games/DiabloWarp/devilutionx-test >/dev/null
+$R put tools/amiga/${RUNSCRIPT:-run-vrender} RAM:${RUNSCRIPT:-run-vrender} >/dev/null
+$R start "Execute RAM:${RUNSCRIPT:-run-vrender}" >/dev/null
 python -c "import time; time.sleep(8)"
 sh tools/cmd.sh "0 click 320 213" "2500 click 410 296" "500 click 300 445" "2500 key return" \
   "22000 mark tstand" "8000 mark twalk" "0 click 80 300" "3000 click 560 60" "3000 click 80 300" \
   "3000 click 560 60" "3000 click 80 300" "3000 click 560 60" "3000 mark tend"
 python -c "import time; time.sleep(70)"
 sh tools/shot.sh build/amiga/vtown-${1:-last}.png >/dev/null
-$R stop devilutionx >/dev/null
+$R stop devilutionx-test >/dev/null
 python -c "import time; time.sleep(5)"
 $R get RAM:diablo.log build/amiga/vtown-${1:-last}.log >/dev/null
 grep -E "VERIFY|verify|mark" build/amiga/vtown-${1:-last}.log | tail -25

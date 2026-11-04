@@ -1,3 +1,3 @@
 Stack 1000000
 CD WorkSD:Games/DiabloWarp
-devilutionx -n --verbose --data-dir WorkSD:Games/Diablo/ --save-dir WorkSD:Games/DiabloWarp/save/ --config-dir WorkSD:Games/DiabloWarp/save/ --log-to-file RAM:diablo.log
+devilutionx-test -n --verbose --data-dir WorkSD:Games/Diablo/ --save-dir WorkSD:Games/DiabloWarp/save/ --config-dir WorkSD:Games/DiabloWarp/save/ --log-to-file RAM:diablo.log
