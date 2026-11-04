@@ -28,8 +28,7 @@ MSYS_NO_PATHCONV=1 docker run --rm -v diablo-build:/work:ro -v "$(pwd -W 2>/dev/
 python tools/make_icon.py "$P/devilutionx.info" --frame tools/icon/diablo_logo.png --crop 0 0 104 40 --lit-frame \
   --stack 1000000 --pos 12 8 --tooltypes "DATADIR=PROGDIR:data" "SAVEDIR=PROGDIR:save" "(LANGUAGE=pl)" "(LANGUAGE=de)" \
   "(SHOWFPS=YES)" "(SKIPINTRO)" "(NOSOUND)" >/dev/null 2>&1
-python tools/make_doc_icon.py "$R/DiabloWarp.info" --frame tools/icon/drawer.png --crop 0 0 46 40 --transparent \
-  --drawer --window 420 200 >/dev/null 2>&1
+cp tools/icon/warp-drawer.info "$R/DiabloWarp.info"	# the game drawer: the WARP logo (tools/icon/warp-drawer.info, ../WARP-drawer.info)
 # texts: Polish without diacritics (every Amiga shows it, as in the other ports)
 for f in DiabloWarp.txt DiabloWarp_en.txt DiabloWarp_release.txt DiabloWarp_release_en.txt; do
   python - "$D/$f" "$P/doc/$f" <<'EOF'
