@@ -7,6 +7,7 @@ cd "$(dirname "$0")/.."
 test -f build/amiga/devilutionx || { echo "no build/amiga/devilutionx"; exit 1; }
 R="python tools/amiga_remote.py"
 sh tools/restore_saves.sh
+$R put build/amiga/devilutionx WorkSD:Games/DiabloWarp/devilutionx >/dev/null
 $R put tools/amiga/$1 WorkSD:Games/DiabloWarp/$1 >/dev/null
 $R start "Execute WorkSD:Games/DiabloWarp/$1" >/dev/null
 python -c "import time; time.sleep(8)"

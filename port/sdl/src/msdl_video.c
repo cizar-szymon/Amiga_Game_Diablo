@@ -61,6 +61,7 @@ static UWORD *row16;        /* one converted span (window mode) */
    frames per second, the time between two presents (the game's frame) and
    the time of the present itself (compare + send to the card) */
 static unsigned long st_frames, st_bands, st_bytes;
+static unsigned long st_panel_full;   /* presents without rectangles (whole frame) */
 static int stats_on = -1;
 static unsigned long stats_t0, stats_prev, stats_frames, stats_present, stats_bytes0, stats_max;
 
@@ -90,10 +91,11 @@ static void stats_frame(unsigned long t_start, unsigned long t_end)
         unsigned long ms = (t_end - stats_t0) / per_ms;
         unsigned long f = stats_frames;
         msdl_logf(SDL_LOG_PRIORITY_INFO,
-                  "stats: %lu.%lu fps, frame %lu ms (longest %lu), present %lu.%lu ms, sent %lu KB/frame",
+                  "stats: %lu.%lu fps, frame %lu ms (longest %lu), present %lu.%lu ms, sent %lu KB/frame, %lu full-frame reports",
                   f * 1000 / ms, (f * 10000 / ms) % 10, ms / f, stats_max / per_ms,
                   stats_present / per_ms / f, (stats_present * 10 / per_ms / f) % 10,
-                  (st_bytes - stats_bytes0) / 1024 / f);
+                  (st_bytes - stats_bytes0) / 1024 / f, st_panel_full);
+        st_panel_full = 0;
         stats_t0 = t_end;
         stats_frames = 0;
         stats_present = 0;
@@ -775,11 +777,22 @@ static void inc_send(int x, int y, int w, int h)
     st_bytes += (unsigned long)(x1 - x) * (y1 - y);
 }
 
-/* Rows y0..y1 of the frame compared with the shadow, changed spans sent. */
-static void present_rows_diff(SDL_Surface *s, int y0, int y1)
+/* Rows y0..y1, columns x0..x1 of the frame compared with the shadow,
+   changed spans sent. */
+static void present_area_diff(SDL_Surface *s, int x0, int y0, int x1, int y1);
+static void present_rows_diff(SDL_Surface *s, int y0, int y1) { present_area_diff(s, 0, y0, s->w, y1); }
+
+static void present_area_diff(SDL_Surface *s, int x0, int y0, int x1, int y1)
 {
     const Uint8 *pixels = (const Uint8 *)s->pixels;
-    int lw = s->w >> 2, by, full = shadow_stale;
+    int lw, la, by, full = shadow_stale;
+    x0 &= ~3;
+    x1 = (x1 + 3) & ~3;
+    if (x0 < 0) x0 = 0;
+    if (x1 > s->w) x1 = s->w & ~3;
+    if (x1 <= x0) return;
+    la = x0 >> 2;           /* first long of the area */
+    lw = x1 >> 2;           /* end long */
     if (shadow8 == NULL || shadow_w != s->w || shadow_h != s->h) {
         free(shadow8);
         shadow_w = s->w;
@@ -797,10 +810,10 @@ static void present_rows_diff(SDL_Surface *s, int y0, int y1)
             ULONG *d = (ULONG *)(shadow8 + y * shadow_w);
             int a, b;
             if (full) {
-                a = 0;
+                a = la;
                 b = lw - 1;
             } else {
-                for (a = 0; a < lw && sl[a] == d[a]; a++) ;
+                for (a = la; a < lw && sl[a] == d[a]; a++) ;
                 if (a == lw) continue;
                 for (b = lw - 1; b > a && sl[b] == d[b]; b--) ;
             }
@@ -844,7 +857,7 @@ static void verify_vram(SDL_Surface *s, int vh)
 static int present_mode_inc = -1;
 
 /* 1 when done incrementally, 0: the caller sends the frame as before. */
-static int present_incremental(SDL_Surface *s)
+static int present_incremental(SDL_Surface *s, const SDL_Rect *rects, int numrects)
 {
     int vh;
     SDL_Palette *pal = s->format->palette;
@@ -859,8 +872,22 @@ static int present_incremental(SDL_Surface *s)
     vh = msdl_view_upload(inc_shift, inc_send);
     inc_unlock();
     if (vh <= 0) return 0;
-    present_rows_diff(s, vh, s->h);
-    if (msdl_view_verify_on()) verify_vram(s, vh);
+    /* the panel below the view: only the rows the game reports as redrawn
+       (all of it when it reports the whole frame) */
+    if (rects == NULL) st_panel_full++;
+    if (rects == NULL || shadow_stale || shadow8 == NULL) {
+        present_rows_diff(s, vh, s->h);
+    } else {
+        int i;
+        for (i = 0; i < numrects; i++) {
+            int y0 = rects[i].y, y1 = rects[i].y + rects[i].h;
+            if (y1 <= vh || rects[i].w <= 0) continue;
+            if (y0 < vh) y0 = vh;
+            if (y1 > s->h) y1 = s->h;
+            if (y1 > y0) present_area_diff(s, rects[i].x, y0, rects[i].x + rects[i].w, y1);
+        }
+    }
+    if (msdl_view_verify_on()) verify_vram(s, s->h);
     return 1;
 }
 
@@ -885,7 +912,7 @@ static void present(const SDL_Rect *rects, int numrects)
     }
     msdl_cells_frame(pixels, pitch, w, h);
     if (present_mode == 0 && the_window->screen != NULL) {
-        int done = present_incremental(s);
+        int done = present_incremental(s, rects, numrects);
         if (!done && present_direct8(s, rects, numrects)) {
             shadow_stale = 1;
             done = 1;

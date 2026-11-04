@@ -176,3 +176,11 @@ z narzutem zapisu):
 | loch, walka w miejscu | 11,3 kl./s (88 ms) | **23,5 (42 ms)** |
 | Tristram, postój | 17,8 (56 ms) | **40,1 (24 ms)** |
 | Tristram, marsz | 17,3 (57 ms) | **29,2 (34 ms)** |
+
+### Wyciek pamięci przy zamykaniu ekranu RTG (4.11.2026, Amiga 1, Warp 1260, AmigaOS 3.2.2.1)
+
+Każde otwarcie i zamknięcie ekranu Picasso96 gubi w Fast RAM dokładnie tyle, ile ma bitmapa ekranu:
+640×480×8 → 307 352 B, 640×480×16 → 615 592 B (niezależnie od `P96SA_Exclusive`, okna, palety,
+blokady bitmapy). Test: `tools/amiga/screentest.c` (`screentest rundy krok głębia exclusive`), wynik
+powtarzalny. To nie gra – dotyczy każdego programu z własnym ekranem RTG. Do zgłoszenia autorowi
+oprogramowania RTG Warpa.
