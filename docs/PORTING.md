@@ -200,3 +200,35 @@ oprogramowania RTG Warpa.
 - Marsz w lochu (12–16 kl./s) zostaje słaby: światło postaci przesuwa się płynnie co takt (tak jak w oryginale,
   `ChangeLightOff`), więc prawie cały widok jest co klatkę inny. Ewentualna opcja „światło skokami co płytkę”
   zmieniłaby wygląd – do decyzji użytkownika.
+
+### Noc 4.11.2026, ciąg dalszy (Amiga 1, stały stan gry, `tools/scene_*.sh`)
+
+| Zmiana | loch, walka | loch, marsz (`scene_walk`, 4 kierunki) | Tristram, postój / marsz |
+|---|---|---|---|
+| stan wyjściowy (po „komórki przy brzegu”) | 42,2 | 15–20 | 82,8 / 38–52 |
+| pętle asm przez wskaźnik ustawiany raz (bez opakowania C na każde wywołanie) | 43,7 | 16–21 | – |
+| cała nieprzycięta płytka (kwadrat, połówki trójkątów) w jednym wywołaniu asm | 44,5 | 18–22 | – |
+| FindPath: cel nieosiągalny rozpoznany wcześnie (te same ścieżki) | 44,5 | 20–37 | 82 / 30–50 |
+| górne połówki trapezów w jednym wywołaniu | 44,4 | 20–37 | – |
+| zapis płytek bez domknięcia rysującego (przebieg zapisu 7,7 → 6,7 ms) | – | – | **87 / 52–55** |
+| wysyłanie szerokich obszarów do VRAM przez MOVE16 | **47,3 (21 ms)** | 20–40 | – |
+
+- **FindPath:** przy trzymanym przycisku w stronę ściany / pustki cel bywa nieosiągalny, a A* przegląda wtedy
+  ~1000–3000 pól (19 µs na pole). Po 128 polach: najpierw przeszukanie wstecz od celu (zamknięty cel ma mały
+  obszar, budżet 512), potem przeszukanie wszerz od startu do głębokości, jaką A* może osiągnąć. Wszystko,
+  co znajdzie A*, znajdzie też to przeszukanie, więc „nie ma” oznacza wynik 0 również dla A*. Czas szukania
+  drogi w marszu po lochu 4,5–11 → 0,3–1,2 ms na klatkę. `tools/pathtest.sh` (długości 100 i 25, także ze
+  sprawdzeniem już po 1 polu): ten sam skrót wyników.
+- **Piksele w marszu po lochu** (liczniki w pętlach C, `ENV:DIABLO_BLIT_C`): ~200 tys. pikseli z tablicą
+  światła + ~40 tys. przezroczystych na klatkę, czyli ~1× widok (mało nadrysowania). Pętle C są prawie tak
+  szybkie jak asm: koszt to chybienia pamięci podręcznej (wiersze bufora gry, dane płytek), nie instrukcje.
+- **Próbki profilera poza kodem gry** (teraz zapisywane, `tools/amiga/pcwho.c` szuka modułu po RomTagu):
+  w marszu po Tristram ~20% czasu w jednej pętli `move.l (a0)+,(a1)+` – to CopyMem podmieniony przez
+  warp.bootstrap; `memcpy` z libnix to zawsze `CopyMem`. Pomiar (`tools/amiga/copybench.c`): kopia
+  640×352 Fast→Fast ~7 ms każdą metodą (CopyMem 7,0, pętla long 7,3, MOVE16 6,2 ms) – to przepustowość
+  pamięci, nie sposób kopiowania. Kosztem jest sama kopia sceny do bufora gry przy ruchu kamery
+  (Tristram, marsz: `copy 6,9 ms`).
+- `BltBitMap` przesunięcia widoku 640×352 na sobie (`tools/amiga/shiftbench.c`): 0,35–0,45 ms w każdym
+  kierunku – blitter Warpa nie jest wąskim gardłem.
+- Statystyki (`DIABLO_STATS`) mają też wiersze: szukanie drogi (wywołania, pola, µs na klatkę, wczesne
+  „brak drogi”), odczyty zegara na klatkę, a z `DIABLO_BLIT_C` liczbę pikseli pętli.
