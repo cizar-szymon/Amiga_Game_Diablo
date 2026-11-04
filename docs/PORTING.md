@@ -232,3 +232,9 @@ oprogramowania RTG Warpa.
   kierunku – blitter Warpa nie jest wąskim gardłem.
 - Statystyki (`DIABLO_STATS`) mają też wiersze: szukanie drogi (wywołania, pola, µs na klatkę, wczesne
   „brak drogi”), odczyty zegara na klatkę, a z `DIABLO_BLIT_C` liczbę pikseli pętli.
+- **Własny `memcpy`** (`port/sdl/src/msdl_mem.c`, w miejsce libnix → `CopyMem`): w ustalonej walce 15% próbek
+  było w pętli `CopyMem` (wiele krótkich kopii: wiersze płytek w buforze pomocniczym, częściowe kopie sceny,
+  tekst). Test `tools/amiga/memcpytest.c` (długości 0–300 × przesunięcia 0–7 źródła i celu, strażniki):
+  0 błędów (sprawdzone na Pi400/Amiberry; pierwsza wersja miała błąd w wyrównaniu i zawiesiła emulator –
+  test zrobił swoje). **Pomiar w grze czeka na Amigę 1** (AmiAgent przestał odpowiadać o ~4:15, przed
+  wgraniem tej wersji; host odpowiada na ping).
