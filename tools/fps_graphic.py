@@ -1,14 +1,38 @@
-"""Picture of the old-vs-new port comparison (docs/porownanie_fps.png).
-   usage: python tools/fps_graphic.py [out.png]"""
+"""Picture of the old-vs-new port comparison.
+   usage: python tools/fps_graphic.py [pl|en] [out.png]
+   (pl -> docs/porownanie_fps.png, en -> docs/fps_comparison_en.png)"""
 import sys
 from PIL import Image, ImageDraw, ImageFont
 
-OUT = sys.argv[1] if len(sys.argv) > 1 else "docs/porownanie_fps.png"
+LANG = sys.argv[1] if len(sys.argv) > 1 else "pl"
+OUT = sys.argv[2] if len(sys.argv) > 2 else ("docs/fps_comparison_en.png" if LANG == "en" else "docs/porownanie_fps.png")
+TEXT = {
+    "pl": {
+        "title": "Diablo na Amidze z Warpem: nowy port wobec starego",
+        "sub1": "Amiga 2: A4000 + Warp 7060 (MC68060), 100 MHz, AmigaOS 3.2.2.1, ekran 640×480×8",
+        "sub2": "stary port: DevilutionX 1.0.0 (Aminet, 2020)   nowy port: DevilutionX 1.6.0-dev dla Warpa, z dźwiękiem   4.11.2026",
+        "cols": ("Scena", "stary", "nowy", "szybciej", "kl./s (zakres)"),
+        "scenes": ("Tristram, postój", "Tristram, marsz", "Loch, marsz", "Loch, walka ze szkieletami"),
+        "old": "stary port (Aminet, 2020)", "new": "nowy port (Warp)",
+        "note": "szybciej = środek zakresu nowego / środek zakresu starego",
+        "dec": ",",
+    },
+    "en": {
+        "title": "Diablo on the Amiga with a Warp card: new port vs old",
+        "sub1": "Amiga 2: A4000 + Warp 7060 (MC68060), 100 MHz, AmigaOS 3.2.2.1, 640×480×8 screen",
+        "sub2": "old port: DevilutionX 1.0.0 (Aminet, 2020)   new port: DevilutionX 1.6.0-dev for the Warp, with sound   2026-11-04",
+        "cols": ("Scene", "old", "new", "faster", "frames per second (range)"),
+        "scenes": ("Tristram, standing", "Tristram, walking", "Dungeon, walking", "Dungeon, fighting skeletons"),
+        "old": "old port (Aminet, 2020)", "new": "new port (Warp)",
+        "note": "faster = middle of the new range / middle of the old range",
+        "dec": ".",
+    },
+}[LANG]
 ROWS = [  # scene, old (min, max), new (min, max)
-    ("Tristram, postój", (17, 17), (91, 91)),
-    ("Tristram, marsz", (13, 17), (47, 66)),
-    ("Loch, marsz", (10, 13), (17, 26)),
-    ("Loch, walka ze szkieletami", (11, 13), (46, 46)),
+    (TEXT["scenes"][0], (17, 17), (91, 91)),
+    (TEXT["scenes"][1], (13, 17), (47, 66)),
+    (TEXT["scenes"][2], (10, 13), (17, 26)),
+    (TEXT["scenes"][3], (11, 13), (46, 46)),
 ]
 W, H = 1600, 900
 BG, FG, MUTED, LINE = (24, 22, 28), (236, 232, 226), (150, 146, 140), (70, 66, 74)
@@ -36,19 +60,15 @@ d = ImageDraw.Draw(img)
 M = 56
 # frame
 d.rounded_rectangle([24, 24, W - 24, H - 24], radius=18, outline=FG, width=3)
-d.text((M, 52), "Diablo na Amidze z Warpem: nowy port wobec starego", font=title, fill=FG)
-d.text((M, 116), "Amiga 2: A4000 + Warp 7060 (MC68060), 100 MHz, AmigaOS 3.2.2.1, ekran 640×480×8", font=sub, fill=MUTED)
-d.text((M, 148), "stary port: DevilutionX 1.0.0 (Aminet, 2020)   nowy port: DevilutionX 1.6.0-dev dla Warpa, z dźwiękiem   4.11.2026",
-       font=sub, fill=MUTED)
+d.text((M, 52), TEXT["title"], font=title, fill=FG)
+d.text((M, 116), TEXT["sub1"], font=sub, fill=MUTED)
+d.text((M, 148), TEXT["sub2"], font=sub, fill=MUTED)
 
 # columns: scene | old | new | speedup | bars
 cx = [M, 470, 640, 810, 960]
 y = 210
-d.text((cx[0], y), "Scena", font=head, fill=MUTED)
-d.text((cx[1], y), "stary", font=head, fill=MUTED)
-d.text((cx[2], y), "nowy", font=head, fill=MUTED)
-d.text((cx[3], y), "szybciej", font=head, fill=MUTED)
-d.text((cx[4], y), "kl./s (zakres)", font=head, fill=MUTED)
+for k in range(5):
+    d.text((cx[k], y), TEXT["cols"][k], font=head, fill=MUTED)
 y += 44
 d.line([M, y, W - M, y], fill=LINE, width=2)
 
@@ -63,7 +83,7 @@ for i, (scene, old, new) in enumerate(ROWS):
     d.text((cx[0], mid - 4), scene, font=cell, fill=FG)
     d.text((cx[1], mid - 4), rng(old), font=cell, fill=FG)
     d.text((cx[2], mid - 4), rng(new), font=big, fill=FG)
-    d.text((cx[3], mid - 4), f"{sp:.1f}×".replace(".", ","), font=big, fill=GOOD)
+    d.text((cx[3], mid - 4), f"{sp:.1f}×".replace(".", TEXT["dec"]), font=big, fill=GOOD)
     for k, (v, col, dy) in enumerate(((old, OLD, 26), (new, NEW, 62))):
         yy = top + dy
         x0, x1 = scale(v[0]), max(scale(v[1]), scale(v[0]) + 10)
@@ -83,10 +103,10 @@ for t in range(0, 101, 20):
 # legend
 ly = H - 70
 d.rounded_rectangle([M, ly + 4, M + 22, ly + 26], radius=4, fill=OLD)
-d.text((M + 32, ly), "stary port (Aminet, 2020)", font=small, fill=FG)
+d.text((M + 32, ly), TEXT["old"], font=small, fill=FG)
 d.rounded_rectangle([M + 330, ly + 4, M + 352, ly + 26], radius=4, fill=NEW)
-d.text((M + 362, ly), "nowy port (Warp)", font=small, fill=FG)
-note = "szybciej = środek zakresu nowego / środek zakresu starego"
+d.text((M + 362, ly), TEXT["new"], font=small, fill=FG)
+note = TEXT["note"]
 d.text((W - M - d.textlength(note, font=small), ly), note, font=small, fill=MUTED)
 
 img.save(OUT)
