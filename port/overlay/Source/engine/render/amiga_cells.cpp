@@ -63,6 +63,7 @@ int envFull = -1, envVerify = -1, envStats = -1, envNoGuard = -1;
 unsigned long stFrames, stFull, stDirty, stCells, stRects, stRecord, stRender, stCopy, stShift, stT0;
 unsigned long vFrames, vBad;
 extern unsigned long stRecentre;
+extern unsigned long stDirect;
 unsigned long guardCount;
 
 int FloorDiv(int a, int b)
@@ -319,6 +320,8 @@ int BuildDirtyRects(int &visibleCells)
 
 bool gameCopyValid = false;
 unsigned long stPartial;
+int lastDirtyShare = 0;
+unsigned long stDirect;
 
 /** Rectangle x, y, w, h of the scene into the game's buffer (clipped to the view). */
 void CopyToGame(const Surface &out, int x, int y, int w, int h)
@@ -407,11 +410,11 @@ void Stats(unsigned long now)
 	if (now - stT0 < 5000 * perMs || stFrames == 0)
 		return;
 	const unsigned long f = stFrames;
-	SDL_Log("cells: %lu frames, %lu recentred, %lu full, %lu partial copies, dirty %lu%%, %lu rects/frame; ms/frame record %lu.%lu shift %lu.%lu render %lu.%lu copy %lu.%lu",
-	    f, stRecentre, stFull, stPartial, stCells != 0 ? stDirty * 100 / stCells : 0, stRects / f,
+	SDL_Log("cells: %lu frames, %lu direct, %lu recentred, %lu full, %lu partial copies, dirty %lu%%, %lu rects/frame; ms/frame record %lu.%lu shift %lu.%lu render %lu.%lu copy %lu.%lu",
+	    f, stDirect, stRecentre, stFull, stPartial, stCells != 0 ? stDirty * 100 / stCells : 0, stRects / f,
 	    stRecord / perMs / f, (stRecord * 10 / perMs / f) % 10, stShift / perMs / f, (stShift * 10 / perMs / f) % 10,
 	    stRender / perMs / f, (stRender * 10 / perMs / f) % 10, stCopy / perMs / f, (stCopy * 10 / perMs / f) % 10);
-	stFrames = stFull = stDirty = stCells = stRects = stRecord = stRender = stCopy = stShift = stPartial = stRecentre = 0;
+	stFrames = stFull = stDirty = stCells = stRects = stRecord = stRender = stCopy = stShift = stPartial = stRecentre = stDirect = 0;
 	stT0 = now;
 }
 
@@ -487,7 +490,7 @@ const DirtyRect *GetDirtyRects(int &count)
 }
 
 void DrawScene(const Surface &out, int firstTileX, int firstTileY, int offsetX, int offsetY, bool forceFull,
-    uint32_t levelKey, const std::function<void(const Surface &)> &drawScene)
+    uint32_t levelKey, bool lightMoves, const std::function<void(const Surface &)> &drawScene)
 {
 	overlayTrack = false;
 	gameSurface = out.surface;
@@ -513,6 +516,30 @@ void DrawScene(const Surface &out, int firstTileX, int firstTileY, int offsetX, 
 	camX = (firstTileX - firstTileY) * TileHalfW - offsetX;
 	camY = (firstTileX + firstTileY) * TileHalfH - offsetY;
 
+	// Walking in the dungeon the player's light moves every game tick and
+	// nearly every cell changes: then the cells only add the record pass and
+	// the copy. While the camera moves and the last frame was (nearly) all
+	// dirty, draw straight into the game's buffer as the game does; the first
+	// frame with the camera still records again.
+	if (lightMoves && (camX != prevCamX || camY != prevCamY) && lastDirtyShare >= 80 && !Env(envVerify, "DIABLO_VERIFY_RENDER")) {
+		static int d4[512 * 4];
+		suppressSideEffects = false;
+		drawScene(out);
+		msdl_view_take_damage(d4, 512);
+		msdl_view_scene(camX - prevCamX, camY - prevCamY, viewW, viewH, nullptr, 0, 1);
+		prevValid = false;
+		gameCopyValid = false;
+		overlayTrack = true;
+		if (stats) {
+			stFrames++;
+			stDirect++;
+			stDirty += 100;
+			stCells += 100;
+			Stats(amiga_eclock());
+		}
+		return;
+	}
+
 	// 1. record
 	cur ^= 1;
 	Grid &g = grids[cur];
@@ -535,6 +562,7 @@ void DrawScene(const Surface &out, int firstTileX, int firstTileY, int offsetX, 
 	int visible;
 	int dirty = BuildDirtyRects(visible);
 	bool full = forceFull || Env(envFull, "DIABLO_FULL") || !prevValid || dirty * 10 > visible * 6;
+	lastDirtyShare = visible > 0 ? (full ? 100 : dirty * 100 / visible) : 100;
 
 	// 3. shift and draw
 	if (full) {

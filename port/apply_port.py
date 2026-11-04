@@ -200,7 +200,7 @@ CHANGES = [
      "\t\t                             | (static_cast<uint32_t>(leveltype) << 16) | (setlevel ? 0x1000000U : 0U))\n"
      "\t\t    ^ amiga_cells::PtrKey(pDungeonCels.get());\n"
      "\t\tamiga_cells::DrawScene(out, position.x, position.y, offset.deltaX, offset.deltaY,\n"
-     "\t\t    *GetOptions().Graphics.perPixelLighting, levelKey, drawScene);\n"
+     "\t\t    *GetOptions().Graphics.perPixelLighting, levelKey, leveltype != DTYPE_TOWN, drawScene);\n"
      "\t} else\n"
      "#endif\n"
      "\t\tdrawScene(out);\n"),
@@ -284,6 +284,41 @@ CHANGES = [
      "\t\tamiga_cells::OverlayAll();\n"
      "#endif\n"
      "\tif (AutomapActive) {\n"),
+    # Path finding: O(1) node lookup (same search, same paths) - the player
+    # walking towards a wall took up to 2.6 s per path on a 68060.
+    ("Source/engine/path.cpp",
+     '// A simple map with a fixed number of buckets and static storage.\nclass ExploredNodes {\n\tstatic const size_t NumBuckets = 64;\n\tstatic const size_t BucketCapacity = 3 * MaxPathNodes / NumBuckets;\n\tusing Entry = std::pair<uint16_t, ExploredNode>;\n\tusing Bucket = StaticVector<Entry, BucketCapacity>;\n\npublic:\n\tusing value_type = Entry;\n\tusing iterator = value_type *;\n\tusing const_iterator = const value_type *;\n\n\t[[nodiscard]] const_iterator find(const PointT &point) const\n\t{\n\t\tconst Bucket &b = bucket(point);\n\t\tconst auto *const it = c_find_if(b, [r = repr(point)](const Entry &e) { return e.first == r; });\n\t\tif (it == b.end()) return nullptr;\n\t\treturn it;\n\t}\n\t[[nodiscard]] iterator find(const PointT &point)\n\t{\n\t\tBucket &b = bucket(point);\n\t\tauto *it = c_find_if(b, [r = repr(point)](const Entry &e) { return e.first == r; });\n\t\tif (it == b.end()) return nullptr;\n\t\treturn it;\n\t}\n\n\t// NOLINTNEXTLINE(readability-convert-member-functions-to-static)\n\t[[nodiscard]] const_iterator end() const { return nullptr; }\n\t// NOLINTNEXTLINE(readability-convert-member-functions-to-static)\n\t[[nodiscard]] iterator end() { return nullptr; }\n\n\tvoid emplace(const PointT &point, const ExploredNode &exploredNode)\n\t{\n\t\tbucket(point).emplace_back(repr(point), exploredNode);\n\t}\n\n\t[[nodiscard]] bool canInsert(const PointT &point) const\n\t{\n\t\treturn bucket(point).size() < BucketCapacity;\n\t}\n\nprivate:\n\t[[nodiscard]] const Bucket &bucket(const PointT &point) const { return buckets_[bucketIndex(point)]; }\n\t[[nodiscard]] Bucket &bucket(const PointT &point) { return buckets_[bucketIndex(point)]; }\n\t[[nodiscard]] static size_t bucketIndex(const PointT &point)\n\t{\n\t\treturn ((point.x & 0b111) << 3) | (point.y & 0b111);\n\t}\n\n\t[[nodiscard]] static uint16_t repr(const PointT &point)\n\t{\n\t\treturn (point.x << 8) | point.y;\n\t}\n\n\tstd::array<Bucket, NumBuckets> buckets_;\n};\n\n',
+     '#ifdef __amigaos__\n// Warp port: the same buckets with the same capacity (so the search explores\n// exactly the same nodes), but a node is found through a 256x256 index\n// instead of a linear search of its bucket. The comparator of the frontier\n// heap looks nodes up on every tie: on a 68060 an unreachable target (the\n// player walking towards a wall with the button held) took up to 2.6 s.\nclass ExploredNodes {\n\tstatic const size_t NumBuckets = 64;\n\tstatic const size_t BucketCapacity = 3 * MaxPathNodes / NumBuckets;\n\tusing Entry = std::pair<uint16_t, ExploredNode>;\n\npublic:\n\tusing value_type = Entry;\n\tusing iterator = value_type *;\n\tusing const_iterator = const value_type *;\n\n\tExploredNodes()\n\t{\n\t\tif (++stamp_ == 0) {\n\t\t\tstd::fill(std::begin(stamps_), std::end(stamps_), 0);\n\t\t\tstamp_ = 1;\n\t\t}\n\t\tcounts_.fill(0);\n\t}\n\n\t[[nodiscard]] const_iterator find(const PointT &point) const\n\t{\n\t\tconst uint16_t r = repr(point);\n\t\treturn stamps_[r] == stamp_ ? &entries_[index_[r]] : nullptr;\n\t}\n\t[[nodiscard]] iterator find(const PointT &point)\n\t{\n\t\tconst uint16_t r = repr(point);\n\t\treturn stamps_[r] == stamp_ ? &entries_[index_[r]] : nullptr;\n\t}\n\n\t// NOLINTNEXTLINE(readability-convert-member-functions-to-static)\n\t[[nodiscard]] const_iterator end() const { return nullptr; }\n\t// NOLINTNEXTLINE(readability-convert-member-functions-to-static)\n\t[[nodiscard]] iterator end() { return nullptr; }\n\n\tvoid emplace(const PointT &point, const ExploredNode &exploredNode)\n\t{\n\t\tconst uint16_t r = repr(point);\n\t\tindex_[r] = count_;\n\t\tentries_[count_++] = Entry { r, exploredNode };\n\t\tstamps_[r] = stamp_;\n\t\tcounts_[bucketIndex(point)]++;\n\t}\n\n\t[[nodiscard]] bool canInsert(const PointT &point) const\n\t{\n\t\treturn counts_[bucketIndex(point)] < BucketCapacity;\n\t}\n\nprivate:\n\t[[nodiscard]] static size_t bucketIndex(const PointT &point)\n\t{\n\t\treturn ((point.x & 0b111) << 3) | (point.y & 0b111);\n\t}\n\n\t[[nodiscard]] static uint16_t repr(const PointT &point)\n\t{\n\t\treturn (point.x << 8) | point.y;\n\t}\n\n\t// one FindPath at a time: the index is shared, entries of an old search\n\t// are told apart by the stamp\n\tstatic inline uint16_t stamps_[65536];\n\tstatic inline uint16_t index_[65536];\n\tstatic inline uint16_t stamp_ = 0;\n\tstd::array<uint8_t, NumBuckets> counts_;\n\tstd::array<Entry, NumBuckets * BucketCapacity> entries_;\n\tuint16_t count_ = 0;\n};\n#else\n// A simple map with a fixed number of buckets and static storage.\nclass ExploredNodes {\n\tstatic const size_t NumBuckets = 64;\n\tstatic const size_t BucketCapacity = 3 * MaxPathNodes / NumBuckets;\n\tusing Entry = std::pair<uint16_t, ExploredNode>;\n\tusing Bucket = StaticVector<Entry, BucketCapacity>;\n\npublic:\n\tusing value_type = Entry;\n\tusing iterator = value_type *;\n\tusing const_iterator = const value_type *;\n\n\t[[nodiscard]] const_iterator find(const PointT &point) const\n\t{\n\t\tconst Bucket &b = bucket(point);\n\t\tconst auto *const it = c_find_if(b, [r = repr(point)](const Entry &e) { return e.first == r; });\n\t\tif (it == b.end()) return nullptr;\n\t\treturn it;\n\t}\n\t[[nodiscard]] iterator find(const PointT &point)\n\t{\n\t\tBucket &b = bucket(point);\n\t\tauto *it = c_find_if(b, [r = repr(point)](const Entry &e) { return e.first == r; });\n\t\tif (it == b.end()) return nullptr;\n\t\treturn it;\n\t}\n\n\t// NOLINTNEXTLINE(readability-convert-member-functions-to-static)\n\t[[nodiscard]] const_iterator end() const { return nullptr; }\n\t// NOLINTNEXTLINE(readability-convert-member-functions-to-static)\n\t[[nodiscard]] iterator end() { return nullptr; }\n\n\tvoid emplace(const PointT &point, const ExploredNode &exploredNode)\n\t{\n\t\tbucket(point).emplace_back(repr(point), exploredNode);\n\t}\n\n\t[[nodiscard]] bool canInsert(const PointT &point) const\n\t{\n\t\treturn bucket(point).size() < BucketCapacity;\n\t}\n\nprivate:\n\t[[nodiscard]] const Bucket &bucket(const PointT &point) const { return buckets_[bucketIndex(point)]; }\n\t[[nodiscard]] Bucket &bucket(const PointT &point) { return buckets_[bucketIndex(point)]; }\n\t[[nodiscard]] static size_t bucketIndex(const PointT &point)\n\t{\n\t\treturn ((point.x & 0b111) << 3) | (point.y & 0b111);\n\t}\n\n\t[[nodiscard]] static uint16_t repr(const PointT &point)\n\t{\n\t\treturn (point.x << 8) | point.y;\n\t}\n\n\tstd::array<Bucket, NumBuckets> buckets_;\n};\n\n#endif\n\n'),
+    # Path finding: the heuristic of a frontier node kept in the node (it only
+    # depends on the position and the target) instead of computed twice in
+    # every tie of the heap comparator. Same paths (tools: build/pathtest).
+    ("Source/engine/path.cpp",
+     "\tCostType f;\n};\n",
+     "\tCostType f;\n#ifdef __amigaos__\n\t// heuristic cost to the destination (Warp port: cached)\n\tCostType h;\n#endif\n};\n"),
+    ("Source/engine/path.cpp",
+     "\t\tfrontier.emplace_back(FrontierNode { .position = start, .f = initialHeuristicCost });\n",
+     "#ifdef __amigaos__\n"
+     "\t\tfrontier.emplace_back(FrontierNode { .position = start, .f = initialHeuristicCost, .h = initialHeuristicCost });\n"
+     "#else\n"
+     "\t\tfrontier.emplace_back(FrontierNode { .position = start, .f = initialHeuristicCost });\n"
+     "#endif\n"),
+    ("Source/engine/path.cpp",
+     "\t\tconst CostType hA = GetHeuristicCost(a.position, dest);\n\t\tconst CostType hB = GetHeuristicCost(b.position, dest);\n",
+     "#ifdef __amigaos__\n"
+     "\t\tconst CostType hA = a.h;\n\t\tconst CostType hB = b.h;\n"
+     "#else\n"
+     "\t\tconst CostType hA = GetHeuristicCost(a.position, dest);\n\t\tconst CostType hB = GetHeuristicCost(b.position, dest);\n"
+     "#endif\n"),
+    ("Source/engine/path.cpp",
+     "\t\t\t\tconst CostType f = g + GetHeuristicCost(neighborPos, dest);\n",
+     "\t\t\t\tconst CostType h = GetHeuristicCost(neighborPos, dest);\n\t\t\t\tconst CostType f = g + h;\n"),
+    ("Source/engine/path.cpp",
+     "\t\t\t\t\tfrontier.emplace_back(FrontierNode { .position = neighborPos, .f = f });\n",
+     "#ifdef __amigaos__\n"
+     "\t\t\t\t\tfrontier.emplace_back(FrontierNode { .position = neighborPos, .f = f, .h = h });\n"
+     "#else\n"
+     "\t\t\t\t\tfrontier.emplace_back(FrontierNode { .position = neighborPos, .f = f });\n"
+     "#endif\n"),
     # Test mode ENV:DIABLO_GOD: the own player takes no damage (measurements
     # in the dungeon without dying). Off unless the variable is set.
     ("Source/player.cpp",

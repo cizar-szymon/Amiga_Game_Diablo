@@ -6,7 +6,8 @@
      "500 click 320 240", "200 rclick 10 10", "100 move 5 5",
      "300 key return" (return esc space tab backspace up down left right
      f1..f10 or one character), "1000 mark text" (a log line), "0 profon" / "0 profoff"
-     (profiler -> RAM:diablo-prof.txt), "0 stats" (frame statistics), "0 quit". */
+     (profiler -> RAM:diablo-prof.txt), "0 stats" (frame statistics),
+     "0 press x y" / "0 release" (left button held: walk), "0 quit". */
 #include <exec/types.h>
 #include <devices/timer.h>
 #include <devices/inputevent.h>
@@ -356,6 +357,33 @@ static void script_step(void)
             return;
         } else if (strcmp(l->op, "mark") == 0) {
             msdl_logf(SDL_LOG_PRIORITY_INFO, "mark: %s", l->text);
+        } else if (strcmp(l->op, "press") == 0) {
+            /* left button down at a b and kept down (walk towards it) */
+            e.type = SDL_MOUSEMOTION;
+            e.motion.x = l->a;
+            e.motion.y = l->b;
+            e.motion.xrel = l->a - mouse_x;
+            e.motion.yrel = l->b - mouse_y;
+            mouse_x = l->a;
+            mouse_y = l->b;
+            push(&e);
+            memset(&e, 0, sizeof(e));
+            e.type = SDL_MOUSEBUTTONDOWN;
+            e.button.button = SDL_BUTTON_LEFT;
+            e.button.state = SDL_PRESSED;
+            e.button.clicks = 1;
+            e.button.x = l->a;
+            e.button.y = l->b;
+            mouse_buttons |= SDL_BUTTON(SDL_BUTTON_LEFT);
+            push(&e);
+            msdl_logf(SDL_LOG_PRIORITY_INFO, "script: press %d %d", l->a, l->b);
+        } else if (strcmp(l->op, "release") == 0) {
+            e.type = SDL_MOUSEBUTTONUP;
+            e.button.button = SDL_BUTTON_LEFT;
+            e.button.x = mouse_x;
+            e.button.y = mouse_y;
+            mouse_buttons &= ~SDL_BUTTON(SDL_BUTTON_LEFT);
+            push(&e);
         } else if (strcmp(l->op, "profon") == 0) {
             msdl_prof_on();
         } else if (strcmp(l->op, "profoff") == 0) {

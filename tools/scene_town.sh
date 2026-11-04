@@ -4,6 +4,7 @@
 #   sh tools/scene_town.sh run-prof|run-full [label]
 set -e
 cd "$(dirname "$0")/.."
+test -f build/amiga/devilutionx || { echo "no build/amiga/devilutionx"; exit 1; }
 R="python tools/amiga_remote.py"
 $R put tools/amiga/$1 WorkSD:Games/DiabloWarp/$1 >/dev/null
 $R start "Execute WorkSD:Games/DiabloWarp/$1" >/dev/null

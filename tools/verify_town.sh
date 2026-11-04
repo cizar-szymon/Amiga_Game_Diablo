@@ -4,6 +4,7 @@
 # the memory list afterwards (Avail).
 #   sh tools/verify_town.sh [label]
 cd "$(dirname "$0")/.."
+test -f build/amiga/devilutionx || { echo "no build/amiga/devilutionx"; exit 1; }
 R="python tools/amiga_remote.py"
 $R put build/amiga/devilutionx WorkSD:Games/DiabloWarp/devilutionx >/dev/null
 $R put tools/amiga/${RUNSCRIPT:-run-vrender} WorkSD:Games/DiabloWarp/${RUNSCRIPT:-run-vrender} >/dev/null

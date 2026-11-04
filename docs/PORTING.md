@@ -149,3 +149,13 @@ wysyłka 6 – etap 2 (VRAM, blitter) usuwa kopię i zmniejsza wysyłkę; zapis 
 Rozkład w lochu (ms/klatkę): zapis 6,5, rysowanie 21,7 (26% brudnych), kopia 1,8, wysyłka 4,6.
 Testy: `sh tools/verify_all.sh <etykieta>` (wszystkie kontrole + Avail), pomiary `tools/scene_dungeon.sh`,
 `tools/scene_town.sh`.
+
+### Marsz (4.11.2026, Amiga 1, `tools/scene_walk.sh`: przycisk trzymany w 4 kierunkach po 5 s)
+
+- Tristram: pełne rysowanie 16–18 kl./s, komórkowe **21–26 kl./s** (w marszu kopia sceny do bufora gry 7,3 ms zostaje).
+- Loch: przy marszu światło postaci przesuwa się co takt logiki (20/s) i brudne jest 85–95% komórek.
+  Wtedy (lochy, kamera w ruchu, poprzednia klatka ≥ 80% brudna) rysowanie bezpośrednio do bufora gry,
+  bez zapisu i kopii – jak przed rendererem; pierwsza klatka postoju odbudowuje skróty. Marsz w lochu 13–15 kl./s.
+- Zacięcia w marszu: szukanie drogi (A*, do ~3000 pól, gdy cel za ścianą) – lista odwiedzonych pól z liniowym
+  szukaniem w kubełkach; teraz indeks 256×256 i heurystyka w węźle: te same ścieżki
+  (`tools/pathtest.sh`: 16 000 wyszukiwań, identyczny wynik), najdłuższa klatka 2,6 s → 0,47 s.

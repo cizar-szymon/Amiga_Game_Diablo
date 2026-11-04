@@ -47,7 +47,7 @@ struct DirtyRect {
  * next. levelKey: changes when the level (its graphics) changes.
  */
 void DrawScene(const Surface &out, int firstTileX, int firstTileY, int offsetX, int offsetY, bool forceFull,
-    uint32_t levelKey, const std::function<void(const Surface &)> &drawScene);
+    uint32_t levelKey, bool lightMoves, const std::function<void(const Surface &)> &drawScene);
 
 /**
  * Overlays: everything drawn on the game's buffer outside the scene passes
