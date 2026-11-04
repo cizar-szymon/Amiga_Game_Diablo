@@ -345,3 +345,12 @@ Kl./s prawie bez zmian: w marszu dominuje stały koszt trybu komórkowego – pr
 płytki widoku co klatkę), kopia sceny do bufora gry 3–6 ms, wysłanie na kartę 2–5 ms, logika ~4 ms,
 dźwięk ~2 ms (~20 ms zanim cokolwiek się narysuje); w lochu ze skokami dodatkowo 2 pełne klatki na każdy
 przeskok światła (klatka bezpośrednia, potem pełna w komórkach).
+
+### Porównanie ze starym portem z Aminetu (4.11.2026, Amiga 2: A4000 + Warp 7060)
+
+Stary port (DevilutionX 1.0.0, 22.02.2020, SDL1, ekran 640×480×8) uruchomiony z kopii programu w
+`WorkSD:Games/DiabloOld` (`DevilutionX -n -f --data-dir WorkSD:Games/Diablo/` – dane z instalacji
+użytkownika tylko do odczytu, zapisy obok kopii), postać ANDY z tego samego zapisu w lochu (poziom 2).
+Licznik `-f` na zrzutach: **12–13 kl./s** w lochu (postój i walka, obraz w całości co klatkę).
+Nowy port na tej samej Amidze: walka w lochu 48 kl./s (z dźwiękiem 46–47), marsz po lochu 18–30 kl./s.
+Postaci WARP (zapis nowego portu) stara wersja nie wczytuje, więc miasta nie porównano.
