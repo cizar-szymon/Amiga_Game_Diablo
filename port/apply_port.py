@@ -612,6 +612,45 @@ CHANGES = [
      "}\n"
      "\n"
      "void DrawFloorTileImpl(const Surface &out, const Lightmap &lightmap, Point tilePosition, Point targetBufferPosition)\n{\n\tconst int lightTableIndex = dLight[tilePosition.x][tilePosition.y];\n"),
+    # Start from the icon: its Tool Types (or the same words in the Shell's
+    # arguments) become the game's options (port/sdl/src/amiga_wb.c).
+    ("Source/main.cpp",
+     "\tconst int result = devilution::DiabloMain(argc, argv);\n",
+     "#ifdef __amigaos__\n"
+     "\tamiga_args(&argc, &argv);\n"
+     "#endif\n"
+     "\tconst int result = devilution::DiabloMain(argc, argv);\n"),
+    ("Source/main.cpp",
+     "extern \"C\" int main(int argc, char **argv)\n",
+     "#ifdef __amigaos__\n"
+     "extern \"C\" void amiga_args(int *argc, char ***argv);\n"
+     "#endif\n"
+     "\n"
+     "extern \"C\" int main(int argc, char **argv)\n"),
+    ("Source/diablo.cpp",
+     "\tLoadOptions();\n\tif (demo::IsRunning()) demo::OverrideOptions();\n",
+     "\tLoadOptions();\n\tif (demo::IsRunning()) demo::OverrideOptions();\n"
+     "#ifdef __amigaos__\n"
+     "\tif (amiga_opt_showfps >= 0)\n"
+     "\t\tGetOptions().Graphics.showFPS.SetValue(amiga_opt_showfps != 0);\n"
+     "#endif\n"),
+    ("Source/diablo.cpp",
+     "int DiabloMain(int argc, char **argv)\n{\n",
+     "#ifdef __amigaos__\n"
+     "extern \"C\" int amiga_opt_showfps; // Tool Type SHOWFPS (port/sdl/src/amiga_wb.c)\n"
+     "#endif\n"
+     "\n"
+     "int DiabloMain(int argc, char **argv)\n{\n"),
+    # Translations: the .gmo from the assets folder was read with a seek and a
+    # read per string (thousands of AmigaDOS calls): de.gmo took 13 s, the
+    # screen grey meanwhile. Read the whole file at once, as from an MPQ.
+    ("Source/utils/language.cpp",
+     "\tconst bool readWholeFile = handle.handle->type == SDL_RWOPS_UNKNOWN;\n",
+     "#ifdef __amigaos__\n"
+     "\tconst bool readWholeFile = true;\n"
+     "#else\n"
+     "\tconst bool readWholeFile = handle.handle->type == SDL_RWOPS_UNKNOWN;\n"
+     "#endif\n"),
     # Videos on the 8-bit screen: the game cannot scale indexed output and
     # shows them at their size (~320x160); here whole multiples (2x),
     # every source pixel doubled across and every row repeated.

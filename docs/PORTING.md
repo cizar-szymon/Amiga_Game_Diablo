@@ -390,3 +390,20 @@ Stary port w mieście: nowa postać (zapisu WARP nie wczyta), więc inne miejsce
 postać AR i ten sam zapis; stary port bez trybu bez obrażeń (AR ginie po ~30 s walki).
 
 Krok B (bez kopii sceny do bufora gry przy ruchu kamery): **nie robimy** (decyzja użytkownika 4.11.2026).
+
+### Ikona, Tool Types, stos, języki (4.11.2026, Amiga 2)
+
+- Ikona `devilutionx.info` (`sh tools/make_game_icon.sh`): logo DIABLO z menu (104×40, ColorIcon),
+  stos w ikonie 1 000 000. Tool Types (te same słowa działają jako argumenty w Shellu, `amiga_wb.c`
+  `amiga_args`): `DATADIR=` (→ `--data-dir`), `SAVEDIR=` (→ `--save-dir` i `--config-dir`),
+  `LANGUAGE=pl|en|de` (→ `--lang`, każdy język gry), `SKIPINTRO` (→ `-n`), `SHOWFPS=YES|NO` (licznik
+  kl./s, nadpisuje `diablo.ini`), `NOSOUND`. W ikonie: `DATADIR=WorkSD:Games/Diablo`,
+  `SAVEDIR=PROGDIR:save`, `LANGUAGE=pl`, `SHOWFPS=YES`, podpowiedzi `(LANGUAGE=en)`, `(LANGUAGE=de)`,
+  `(SKIPINTRO)`, `(NOSOUND)`.
+- Stos: `__stack = 1000000` + odwołanie do `__stkinit` w `msdl_core.c` (bez niego libnix nie zmienia
+  stosu przy starcie z ikony); w mapie linkera `swapstack.o`; gra uruchomiona z ikony
+  (`tools/amiga/wbrun.c`, `OpenWorkbenchObject`) ma stos 1 000 000 (`tools/amiga/taskstack.c`).
+- Języki: tłumaczenia gry (`assets/*.gmo`) i czcionki z polskimi i niemieckimi znakami są w danych;
+  polski, angielski i niemiecki sprawdzone (menu, wybór postaci). Tłumaczenie z katalogu `assets` było
+  czytane osobnym `seek` + `read` dla każdego napisu: de.gmo 13 094 ms (szary ekran przez cały ten
+  czas), teraz cały plik naraz: 113 ms.

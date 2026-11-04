@@ -33,6 +33,7 @@
 #include <stdlib.h>
 
 #include "msdl_internal.h"
+#include "amiga_wb.h"
 
 int amiga_snd_init(void);
 void amiga_snd_quit(void);
@@ -304,7 +305,7 @@ int amiga_snd_init(void)
     if (proc != NULL) return 0;
     {
         char buf[8];
-        if (msdl_env("DIABLO_NOSOUND", buf, sizeof(buf)) >= 0) {
+        if (amiga_opt_nosound || msdl_env("DIABLO_NOSOUND", buf, sizeof(buf)) >= 0) {
             msdl_logf(SDL_LOG_PRIORITY_INFO, "sound: off (DIABLO_NOSOUND)");
             return -1;
         }

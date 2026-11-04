@@ -18,6 +18,14 @@
 #include "msdl_internal.h"
 #include "amiga_wb.h"
 
+/* libnix: this stack is set up before main(), also when started from the
+   icon (which would give only the icon's stack). __stack alone does not do
+   it: the code that swaps the stack (swapstack.o, __stkinit) is linked only
+   when something refers to it (PORTING_PLAN, OpenDUNE 29.10.2026). */
+unsigned long __stack = 1000000;
+extern void __stkinit(void);
+void (*const amiga_stackSwap)(void) = __stkinit;
+
 static char error_buf[256];
 
 /* libnix's I/O calls __chkabort(), which on Ctrl-C calls exit() from
