@@ -360,3 +360,12 @@ Pomiar właściwy (za zgodą użytkownika): zapis AR (`single_1.sv.bak` nowego p
 `ENVARC:…/single_0.sv`, ANDY zachowany w `RAM:` i przywrócony po teście. Ta sama scena walki ze
 szkieletami co `scene_dungeon.sh`: **13 kl./s** (stary port, bez trybu bez obrażeń – AR ginie po ~30 s)
 wobec **48 kl./s** nowego portu (46–47 z dźwiękiem).
+
+### Próba: mniejsze światło postaci (4.11.2026, odrzucona)
+
+Opcja „Light Radius” (100/85/70% promienia światła postaci, tylko w `ProcessLightList`): przy 70% koło
+światła wyraźnie mniejsze, ale marsz po lochu bez zysku (100%: 23,2 kl./s średnio z 4 odcinków, 70%:
+25,7, 70% + Light Steps: 24,3 – w granicach rozrzutu). Płytki poza kołem nie są czarne (światło otoczenia
+poziomu), rysuje je ta sama pętla z tablicą światła; przy świetle zmieniającym się co takt i tak działa
+rysowanie bezpośrednie całego obrazu. Opcja usunięta (decyzja użytkownika). Płytki w VRAM: za mało pamięci
+karty (17–27 MB na poziom z wersjami światła).
