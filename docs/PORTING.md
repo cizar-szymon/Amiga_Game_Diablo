@@ -417,3 +417,6 @@ wyciąga z niej każde nagranie znane grze (`effects*.tsv`, `.mp3`), zamienia `f
 22 050 Hz (format oryginału) i pakuje (mpqfs writer) pod nazwą `.wav`: 355 nagrań, 93 MB
 (`private/voice/pl-wav.mpq`, poza gitem). Na Amidze 2 w `WorkSD:Games/DiabloWarp/save/pl.mpq` (katalog
 zapisów jest na liście katalogów MPQ). Niemieckiego `de.mpq` w oficjalnych zasobach nie ma (404).
+Rozmowy (strumieniowane) nie grały od kroku 3 dźwięku: `SoundSample::IsLoaded` dla strumienia zwracało
+false (tylko ścieżka, bez próbek), a `effects.cpp` gra tylko wczytane. Poprawione; polskie rozmowy
+potwierdzone odsłuchem przez użytkownika (4.11.2026).
