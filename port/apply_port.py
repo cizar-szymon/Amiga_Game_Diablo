@@ -547,7 +547,7 @@ CHANGES = [
      "#if !defined(NOSOUND) || defined(__amigaos__)\n\tuint32_t sfxFrames = GetSFXLength(nSFX);\n"),
     ("Source/utils/soundsample.h",
      "#else\n\t\treturn stream_ != nullptr;\n#endif\n",
-     "#elif defined(__amigaos__)\n\t\treturn pcm_ != nullptr;\n#else\n\t\treturn stream_ != nullptr;\n#endif\n"),
+     "#elif defined(__amigaos__)\n\t\treturn pcm_ != nullptr || !file_path_.empty(); // streamed: only its path is kept\n#else\n\t\treturn stream_ != nullptr;\n#endif\n"),
     ("Source/utils/soundsample.h",
      "#else\n\tstd::unique_ptr<Aulib::Stream> stream_;\n#endif\n",
      "#elif defined(__amigaos__)\n"
