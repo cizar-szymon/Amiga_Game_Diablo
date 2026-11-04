@@ -299,9 +299,13 @@ static void map_checked(unsigned char *dst, const unsigned char *src, unsigned n
     if ((v_calls & 0xFFFF) == 0) msdl_logf(SDL_LOG_PRIORITY_INFO, "blit: %lu calls checked, %lu bad", v_calls, v_bad);
 }
 
+extern unsigned long msdl_counter[8];
+
 static void map_c(unsigned char *dst, const unsigned char *src, unsigned n, const unsigned char *map)
 {
     unsigned i;
+    msdl_counter[4] += n;
+    msdl_counter[6]++;
     for (i = 0; i < n; i++) dst[i] = map[src[i]];
 }
 
@@ -329,6 +333,8 @@ static void blend_c(unsigned char *dst, const unsigned char *src, unsigned n, co
                     const unsigned char *pal)
 {
     unsigned i;
+    msdl_counter[5] += n;
+    msdl_counter[7]++;
     for (i = 0; i < n; i++) dst[i] = pal[dst[i] * 256 + map[src[i]]];
 }
 
@@ -361,7 +367,9 @@ static void lines_c(int blend, unsigned char *dst, int step, const unsigned char
                     const unsigned char *map, const unsigned char *pal)
 {
     int i, k;
+    msdl_counter[blend ? 7 : 6]++;
     for (k = 0; k < count; k++, dst -= step, src += n, n += dn) {
+        msdl_counter[blend ? 5 : 4] += n;
         for (i = 0; i < n; i++) dst[i] = blend ? pal[dst[i] * 256 + map[src[i]]] : map[src[i]];
     }
 }

@@ -72,7 +72,7 @@ void msdl_stats_toggle(void)
     msdl_logf(SDL_LOG_PRIORITY_INFO, "stats: %s", stats_on ? "on" : "off");
 }
 
-unsigned long msdl_counter[4];
+unsigned long msdl_counter[8];
 
 static void stats_frame(unsigned long t_start, unsigned long t_end)
 {
@@ -102,6 +102,12 @@ static void stats_frame(unsigned long t_start, unsigned long t_end)
             msdl_logf(SDL_LOG_PRIORITY_INFO, "stats: path %lu calls, %lu nodes, %lu us per frame, %lu early no-path",
                       msdl_counter[0] / f, msdl_counter[1] / f, msdl_counter[2] * 1000 / per_ms / f, msdl_counter[3]);
             msdl_counter[0] = msdl_counter[1] = msdl_counter[2] = msdl_counter[3] = 0;
+        }
+        if (msdl_counter[6] != 0) {
+            /* pixel loops (counted only by the C loops, ENV:DIABLO_BLIT_C) */
+            msdl_logf(SDL_LOG_PRIORITY_INFO, "stats: map %lu px in %lu calls, blend %lu px in %lu calls per frame",
+                      msdl_counter[4] / f, msdl_counter[6] / f, msdl_counter[5] / f, msdl_counter[7] / f);
+            msdl_counter[4] = msdl_counter[5] = msdl_counter[6] = msdl_counter[7] = 0;
         }
         st_panel_full = 0;
         stats_t0 = t_end;

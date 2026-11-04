@@ -88,6 +88,15 @@ CHANGES = [
      "\t}\n"
      "#endif\n"),
     ("Source/engine/render/dun_render.cpp",
+     "\t} else { // Mask == MaskType::Solid || Mask == MaskType::Transparent\n",
+     "\t} else { // Mask == MaskType::Solid || Mask == MaskType::Transparent\n"
+     "#ifdef __amigaos__\n"
+     "\t\tif constexpr (Light == LightType::PartiallyLit) {\n"
+     "\t\t\t(Mask == MaskType::Transparent ? amiga_blend_lines_fn : amiga_map_lines_fn)(dst, dstPitch, src, Width, 0, TrapezoidUpperHeight, tbl, &paletteTransparencyLookup[0][0]);\n"
+     "\t\t\treturn;\n"
+     "\t\t}\n"
+     "#endif\n"),
+    ("Source/engine/render/dun_render.cpp",
      "DVL_ALWAYS_INLINE DVL_ATTRIBUTE_HOT void RenderTriangleLower(uint8_t *DVL_RESTRICT &dst, ptrdiff_t dstLineOffset, const uint8_t *DVL_RESTRICT &src, const uint8_t *DVL_RESTRICT tbl, const Lightmap *lightmap)\n{\n",
      "DVL_ALWAYS_INLINE DVL_ATTRIBUTE_HOT void RenderTriangleLower(uint8_t *DVL_RESTRICT &dst, ptrdiff_t dstLineOffset, const uint8_t *DVL_RESTRICT &src, const uint8_t *DVL_RESTRICT tbl, const Lightmap *lightmap)\n{\n"
      "#ifdef __amigaos__\n"
@@ -394,7 +403,7 @@ CHANGES = [
      "uint8_t posOkValue[65536];\n"
      "uint16_t posOkCall = 0;\n"
      "} // namespace\n"
-     "extern \"C\" unsigned long msdl_counter[4];\n"
+     "extern \"C\" unsigned long msdl_counter[8];\n"
      "extern \"C\" unsigned long amiga_eclock(void);\n"
      "struct AmigaPathTimer {\n\tunsigned long t0 = amiga_eclock();\n\t~AmigaPathTimer() { msdl_counter[2] += amiga_eclock() - t0; }\n};\n"
      "namespace {\n"
