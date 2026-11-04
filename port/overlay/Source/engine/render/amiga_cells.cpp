@@ -31,9 +31,10 @@ namespace devilution::amiga_cells {
 
 namespace {
 
-constexpr int Cell = 32;
-constexpr int GridW = 24; // 640 / 32 + 1, with room
-constexpr int GridH = 16; // up to 480 / 32 + 1
+constexpr int CellShift = 5;
+constexpr int Cell = 1 << CellShift; // cell size in pixels
+constexpr int GridW = 640 / Cell + 4; // with room
+constexpr int GridH = 480 / Cell + 4;
 constexpr int TileHalfW = 32; // TILE_WIDTH / 2
 constexpr int TileHalfH = 16; // TILE_HEIGHT / 2
 constexpr uint32_t HashInit = 0x811C9DC5U;
@@ -71,6 +72,12 @@ unsigned long guardCount;
 int FloorDiv(int a, int b)
 {
 	return a >= 0 ? a / b : -((-a + b - 1) / b);
+}
+
+/** floor(a / Cell): an arithmetic shift (no division on the 68060) */
+inline int CellOf(int a)
+{
+	return a >> CellShift;
 }
 
 inline uint32_t Mix(uint32_t h, uint32_t v)
@@ -446,10 +453,10 @@ void RecordPrimitive(int x, int y, int w, int h, uint32_t k1, uint32_t k2, uint3
 	}
 	Grid &g = grids[cur];
 	const int wx = x + camX, wy = y + camY;
-	int cx0 = FloorDiv(wx, Cell) - g.bx;
-	int cy0 = FloorDiv(wy, Cell) - g.by;
-	int cx1 = FloorDiv(wx + w - 1, Cell) - g.bx;
-	int cy1 = FloorDiv(wy + h - 1, Cell) - g.by;
+	int cx0 = CellOf(wx) - g.bx;
+	int cy0 = CellOf(wy) - g.by;
+	int cx1 = CellOf(wx + w - 1) - g.bx;
+	int cy1 = CellOf(wy + h - 1) - g.by;
 	if (cx0 < 0) cx0 = 0;
 	if (cy0 < 0) cy0 = 0;
 	if (cx1 >= GridW) cx1 = GridW - 1;
@@ -591,8 +598,8 @@ void DrawScene(const Surface &out, int firstTileX, int firstTileY, int offsetX, 
 	// 1. record
 	cur ^= 1;
 	Grid &g = grids[cur];
-	g.bx = FloorDiv(camX, Cell);
-	g.by = FloorDiv(camY, Cell);
+	g.bx = CellOf(camX);
+	g.by = CellOf(camY);
 	for (int y = 0; y < GridH; y++)
 		for (int x = 0; x < GridW; x++)
 			g.h[y][x] = HashInit;

@@ -17,13 +17,15 @@ EXTRA="$*"
 # compiler flags (the toolchain file caches its own at the first configure;
 # these replace them). No -s: symbols stay for devilutionx.debug.
 CFLAGS68K="-fbbb=- -ffast-math -m68040 -mhard-float -fomit-frame-pointer -mcrt=nix20"
+# C++ only: no threads, no locks around function-local statics
+CXXFLAGS68K="$CFLAGS68K -fno-threadsafe-statics"
 mkdir -p build/amiga
 MSYS_NO_PATHCONV=1 docker run --rm \
   -v "$ROOT/upstream/devilutionX:/upstream:ro" \
   -v "$ROOT/port:/port:ro" \
   -v $VOL:/work \
   -v "$ROOT/build/amiga:/out" \
-  -e EXTRA="$EXTRA" -e CFLAGS68K="$CFLAGS68K" -e APPLY_SKIP="$APPLY_SKIP" \
+  -e EXTRA="$EXTRA" -e CFLAGS68K="$CFLAGS68K" -e CXXFLAGS68K="$CXXFLAGS68K" -e APPLY_SKIP="$APPLY_SKIP" \
   $IMG sh -c '
     set -e
     # upstream copied once (clean to refresh); our changes re-applied every time
@@ -36,7 +38,7 @@ MSYS_NO_PATHCONV=1 docker run --rm \
     cmake -S . -B /work/build -G Ninja \
         -DCMAKE_BUILD_TYPE=Release \
         -DM68K_COMMON="-fbbb=- -ffast-math" \
-        -DCMAKE_C_FLAGS="$CFLAGS68K" -DCMAKE_CXX_FLAGS="$CFLAGS68K" \
+        -DCMAKE_C_FLAGS="$CFLAGS68K" -DCMAKE_CXX_FLAGS="$CXXFLAGS68K" \
         -DTOOLCHAIN_LDFLAGS="-Wl,-Map=/work/build/devilutionx.map" \
         -DM68K_CPU=68040 -DM68K_FPU=hard \
         -DNOSOUND=ON \
