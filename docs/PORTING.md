@@ -299,8 +299,8 @@ Odtwarzacz (`storm_svid.cpp` `UpdatePalette`) zmienia kolory wprost w tablicy pa
 paletę ponownie; `SDL_SetSurfacePalette` w `msdl_surface.c` wychodziło wtedy od razu, bez nowej wersji,
 a ekran ładuje paletę tylko przy zmianie wersji. Do tego dwie palety mogły mieć tę samą wersję. Teraz
 jeden licznik wersji dla wszystkich palet i nowa wersja przy każdym `SDL_SetSurfacePalette` – zrzuty z
-kilkunastu sekund intro mają dobre kolory. (Film jest w oryginalnym rozmiarze ~320×160, bez powiększenia
-na ekranie 8-bit – do zrobienia.)
+kilkunastu sekund intro mają dobre kolory. Filmy na ekranie 8-bit powiększone 2× (`storm_svid.cpp`: każdy piksel podwojony w poziomie, wiersz
+powtórzony), na środku: intro 640×308 na całą szerokość.
 
 ### Dźwięk, krok 3: mowa strumieniowo (4.11.2026)
 

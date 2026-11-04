@@ -563,6 +563,38 @@ CHANGES = [
      "\t/** Warp port: plays once more on a voice of its own (the sound may already be playing). */\n"
      "\tbool PlayNew(int logSoundVolume, int logUserVolume, int logPan);\n"
      "#else\n\tstd::unique_ptr<Aulib::Stream> stream_;\n#endif\n"),
+    # Videos on the 8-bit screen: the game cannot scale indexed output and
+    # shows them at their size (~320x160); here whole multiples (2x),
+    # every source pixel doubled across and every row repeated.
+    ("Source/storm/storm_svid.cpp",
+     "\t\tif (isIndexedOutputFormat\n\t\t    || outputSurface->w == static_cast<int>(SVidWidth)\n",
+     "#ifdef __amigaos__\n"
+     "\t\tif (isIndexedOutputFormat && SVidWidth != 0 && SVidHeight != 0\n"
+     "\t\t    && static_cast<int>(SVidWidth * 2) <= outputSurface->w && static_cast<int>(SVidHeight * 2) <= outputSurface->h) {\n"
+     "\t\t\tconst int f = std::min(outputSurface->w / static_cast<int>(SVidWidth), outputSurface->h / static_cast<int>(SVidHeight));\n"
+     "\t\t\tconst int w = static_cast<int>(SVidWidth), h = static_cast<int>(SVidHeight);\n"
+     "\t\t\tconst int ox = (outputSurface->w - w * f) / 2, oy = (outputSurface->h - h * f) / 2;\n"
+     "\t\t\tconst SDL_Surface *src = SVidSurface.get();\n"
+     "\t\t\tfor (int y = 0; y < h; y++) {\n"
+     "\t\t\t\tconst uint8_t *s = static_cast<const uint8_t *>(src->pixels) + y * src->pitch;\n"
+     "\t\t\t\tuint8_t *d = static_cast<uint8_t *>(outputSurface->pixels) + (oy + y * f) * outputSurface->pitch + ox;\n"
+     "\t\t\t\tif (f == 2) {\n"
+     "\t\t\t\t\tuint16_t *d2 = reinterpret_cast<uint16_t *>(d);\n"
+     "\t\t\t\t\tfor (int x = 0; x < w; x++)\n"
+     "\t\t\t\t\t\td2[x] = static_cast<uint16_t>(s[x] * 0x0101);\n"
+     "\t\t\t\t} else {\n"
+     "\t\t\t\t\tfor (int x = 0; x < w; x++)\n"
+     "\t\t\t\t\t\tfor (int k = 0; k < f; k++)\n"
+     "\t\t\t\t\t\t\td[x * f + k] = s[x];\n"
+     "\t\t\t\t}\n"
+     "\t\t\t\tfor (int k = 1; k < f; k++)\n"
+     "\t\t\t\t\tstd::memcpy(d + k * outputSurface->pitch, d, static_cast<size_t>(w * f));\n"
+     "\t\t\t}\n"
+     "\t\t\tRenderPresent();\n"
+     "\t\t\treturn true;\n"
+     "\t\t}\n"
+     "#endif\n"
+     "\t\tif (isIndexedOutputFormat\n\t\t    || outputSurface->w == static_cast<int>(SVidWidth)\n"),
     # Test mode ENV:DIABLO_GOD: the own player takes no damage (measurements
     # in the dungeon without dying). Off unless the variable is set.
     ("Source/player.cpp",
