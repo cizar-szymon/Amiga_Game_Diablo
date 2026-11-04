@@ -94,6 +94,15 @@ void msdl_free_format(SDL_PixelFormat *f)
 }
 
 /* ---- palettes ---- */
+/* One counter for all palettes: two palettes never share a version, so
+   the screen (msdl_video.c pal_version) sees every switch and change. */
+static Uint32 pal_serial;
+static Uint32 next_pal_version(void)
+{
+    if (++pal_serial == 0) pal_serial = 1;
+    return pal_serial;
+}
+
 SDL_Palette *SDL_AllocPalette(int ncolors)
 {
     SDL_Palette *p;
@@ -118,7 +127,7 @@ SDL_Palette *SDL_AllocPalette(int ncolors)
         p->colors[i].a = 255;
     }
     p->ncolors = ncolors;
-    p->version = 1;
+    p->version = next_pal_version();
     p->refcount = 1;
     return p;
 }
@@ -137,13 +146,16 @@ int SDL_SetPaletteColors(SDL_Palette *p, const SDL_Color *colors, int first, int
     if (first < 0 || first >= p->ncolors) return SDL_SetError("bad first colour");
     if (first + ncolors > p->ncolors) ncolors = p->ncolors - first;
     if (colors != p->colors + first) memcpy(p->colors + first, colors, sizeof(SDL_Color) * ncolors);
-    if (++p->version == 0) p->version = 1;
+    p->version = next_pal_version();
     return 0;
 }
 
 int SDL_SetSurfacePalette(SDL_Surface *s, SDL_Palette *p)
 {
     if (s == NULL || s->format == NULL) return SDL_SetError("no surface");
+    /* the video player changes the colours in place and sets the same
+       palette again: always a new version, so the screen loads it */
+    if (p != NULL) p->version = next_pal_version();
     if (s->format->palette == p) return 0;
     if (p != NULL) p->refcount++;
     if (s->format->palette != NULL) SDL_FreePalette(s->format->palette);

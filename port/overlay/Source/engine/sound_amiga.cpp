@@ -29,16 +29,12 @@
 #include "options.h"
 #include "utils/log.hpp"
 #include "game_mode.hpp"
+#include "utils/amiga_wavstream.hpp"
 #include "utils/str_cat.hpp"
 
 extern "C" {
 int amiga_snd_init(void);
 void amiga_snd_quit(void);
-int amiga_snd_stream_start(int stereo, int vol);
-void amiga_snd_stream_stop(void);
-void amiga_snd_stream_volume(int vol);
-long amiga_snd_stream_space(void);
-void amiga_snd_stream_write(const signed char *frames, long n);
 extern void (*amiga_snd_pump_fn)(void);
 }
 
@@ -114,122 +110,16 @@ const char *const MusicTracks[NUM_MUSIC] = {
 	"music\\dintro.wav",
 };
 
-struct MusicStream {
-	std::unique_ptr<AssetHandle> handle;
-	long dataStart = 0;
-	uint32_t dataLen = 0;
-	uint32_t pos = 0; // bytes of the data chunk read
-	unsigned channels = 1, bits = 16;
-	bool on = false;
-	bool muted = false;
-};
-MusicStream music;
-uint8_t musicIn[8192];
-signed char musicOut[8192];
+AmigaWavStream musicStream;
+bool musicOn = false;
+bool musicMuted = false;
 
-uint32_t Le32(const uint8_t *p) { return p[0] | (p[1] << 8) | (p[2] << 16) | (static_cast<uint32_t>(p[3]) << 24); }
-uint16_t Le16(const uint8_t *p) { return static_cast<uint16_t>(p[0] | (p[1] << 8)); }
-
-/** Tops the ring up (called from the event pump). */
-void MusicPump()
+/** Event pump: music and speech rings topped up. */
+void PumpStreams()
 {
-	if (!music.on || music.handle == nullptr)
-		return;
-	const unsigned frameBytes = music.channels * (music.bits / 8);
-	bool ok = true;
-	for (int round = 0; round < 8; round++) {
-		long space = amiga_snd_stream_space();
-		if (space < 2048)
-			return;
-		uint32_t frames = std::min<uint32_t>(static_cast<uint32_t>(space), sizeof(musicIn) / frameBytes);
-		if (music.pos >= music.dataLen) {
-			// loop: back to the start of the samples
-			if (!music.handle->seek(music.dataStart)) {
-				ok = false;
-				break;
-			}
-			music.pos = 0;
-		}
-		frames = std::min<uint32_t>(frames, (music.dataLen - music.pos) / frameBytes);
-		if (frames == 0) {
-			music.pos = music.dataLen;
-			continue;
-		}
-		if (!music.handle->read(musicIn, frames * frameBytes)) {
-			ok = false;
-			break;
-		}
-		music.pos += frames * frameBytes;
-		const uint8_t *in = musicIn;
-		signed char *out = musicOut;
-		const unsigned samples = frames * music.channels;
-		if (music.bits == 16) {
-			for (unsigned i = 0; i < samples; i++, in += 2)
-				*out++ = static_cast<signed char>(in[1]);
-		} else {
-			for (unsigned i = 0; i < samples; i++)
-				*out++ = static_cast<signed char>(static_cast<int>(*in++) - 128);
-		}
-		amiga_snd_stream_write(musicOut, static_cast<long>(frames));
-	}
-	if (ok)
-		return;
-	// a read failed: no more music
-	LogError(LogCategory::Audio, "music: read failed");
-	music.on = false;
-	amiga_snd_stream_stop();
-}
-
-bool MusicOpen(const char *path)
-{
-	AssetRef ref = FindAsset(path);
-	if (!ref.ok())
-		{ LogError(LogCategory::Audio, "music: open step 1 failed"); return false; }
-	auto handle = std::make_unique<AssetHandle>(OpenAsset(std::move(ref)));
-	if (!handle->ok())
-		{ LogError(LogCategory::Audio, "music: open step 2 failed"); return false; }
-	// header: RIFF, then chunks up to "data"
-	uint8_t head[12];
-	if (!handle->read(head, 12) || std::memcmp(head, "RIFF", 4) != 0 || std::memcmp(head + 8, "WAVE", 4) != 0)
-		{ LogError(LogCategory::Audio, "music: open step 3 failed"); return false; }
-	long at = 12;
-	unsigned format = 0, channels = 0, bits = 0;
-	uint32_t rate = 0;
-	for (int i = 0; i < 16; i++) {
-		uint8_t ch[8];
-		if (!handle->read(ch, 8))
-			{ LogError(LogCategory::Audio, "music: open step 4 failed"); return false; }
-		const uint32_t n = Le32(ch + 4);
-		at += 8;
-		if (std::memcmp(ch, "data", 4) == 0) {
-			if (format != 1 || (channels != 1 && channels != 2) || (bits != 8 && bits != 16) || rate != 22050) {
-				LogError(LogCategory::Audio, "music: unsupported format {} ({} ch, {} bit, {} Hz)", path, channels, bits, rate);
-				return false;
-			}
-			music.handle = std::move(handle);
-			music.dataStart = at;
-			music.dataLen = n;
-			music.pos = 0;
-			music.channels = channels;
-			music.bits = bits;
-			return true;
-		}
-		if (std::memcmp(ch, "fmt ", 4) == 0 && n >= 16) {
-			uint8_t f[16];
-			if (!handle->read(f, 16))
-				{ LogError(LogCategory::Audio, "music: open step 5 failed"); return false; }
-			format = Le16(f);
-			channels = Le16(f + 2);
-			rate = Le32(f + 4);
-			bits = Le16(f + 14);
-			if (!handle->seek(at + n + (n & 1)))
-				{ LogError(LogCategory::Audio, "music: open step 6 failed"); return false; }
-		} else if (!handle->seek(at + n + (n & 1))) {
-			{ LogError(LogCategory::Audio, "music: open step 7 failed"); return false; }
-		}
-		at += n + (n & 1);
-	}
-	return false;
+	if (musicOn)
+		musicStream.Pump();
+	AmigaSpeechPump();
 }
 
 } // namespace
@@ -296,6 +186,7 @@ void snd_init()
 		return;
 	}
 	gbSndInited = true;
+	amiga_snd_pump_fn = PumpStreams;
 }
 
 void snd_deinit()
@@ -331,10 +222,8 @@ _music_id GetLevelMusic(dungeon_type dungeonType)
 
 void music_stop()
 {
-	if (music.on)
-		amiga_snd_stream_stop();
-	music.on = false;
-	music.handle = nullptr;
+	musicStream.Stop();
+	musicOn = false;
 	sgnMusicTrack = NUM_MUSIC;
 }
 
@@ -345,18 +234,13 @@ void music_start(_music_id nTrack)
 	if (!gbMusicOn || !gbSndInited)
 		return;
 	const char *trackPath = HaveFullMusic() ? MusicTracks[nTrack] : SpawnMusicTracks[nTrack];
-	if (!MusicOpen(trackPath)) {
+	const int v = musicMuted ? 0 : MusicVolume64();
+	if (!musicStream.Open(trackPath) || !musicStream.Start(0, /*loop=*/true, v, v)) {
 		LogError(LogCategory::Audio, "music: cannot play {}", trackPath);
-		music.handle = nullptr;
+		musicStream.Stop();
 		return;
 	}
-	if (amiga_snd_stream_start(music.channels == 2 ? 1 : 0, music.muted ? 0 : MusicVolume64()) != 0) {
-		music.handle = nullptr;
-		return;
-	}
-	music.on = true;
-	amiga_snd_pump_fn = MusicPump;
-	MusicPump(); // fill the ring before it plays out
+	musicOn = true;
 	sgnMusicTrack = nTrack;
 }
 
@@ -374,8 +258,10 @@ int sound_get_or_set_music_volume(int volume)
 	if (volume == 1)
 		return *GetOptions().Audio.musicVolume;
 	GetOptions().Audio.musicVolume.SetValue(volume);
-	if (music.on)
-		amiga_snd_stream_volume(music.muted ? 0 : MusicVolume64());
+	if (musicOn) {
+		const int v = musicMuted ? 0 : MusicVolume64();
+		musicStream.SetVolume(v, v);
+	}
 	return *GetOptions().Audio.musicVolume;
 }
 
@@ -397,16 +283,16 @@ int SoundGetOrSetAudioCuesVolume(int volume)
 
 void music_mute()
 {
-	music.muted = true;
-	if (music.on)
-		amiga_snd_stream_volume(0);
+	musicMuted = true;
+	if (musicOn)
+		musicStream.SetVolume(0, 0);
 }
 
 void music_unmute()
 {
-	music.muted = false;
-	if (music.on)
-		amiga_snd_stream_volume(MusicVolume64());
+	musicMuted = false;
+	if (musicOn)
+		musicStream.SetVolume(MusicVolume64(), MusicVolume64());
 }
 
 } // namespace devilution

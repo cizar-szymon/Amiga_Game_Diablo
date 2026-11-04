@@ -106,46 +106,56 @@ static void mix_voice(struct Voice *v)
 }
 
 
-/* ---- stream (music): a ring of signed 8-bit frames (mono, or left/right
-   pairs) in fast RAM. The game's main loop writes (amiga_snd_stream_write,
-   from its event pump), the audio process reads; one writer, one reader:
-   wr only moves in the game, rd only in the mixer. ---- */
+/* ---- streams (0 music, 1 speech): a ring of signed 8-bit frames (mono,
+   or left/right pairs) in fast RAM each. The game's main loop writes
+   (amiga_snd_stream_write, from its event pump), the audio process reads;
+   one writer, one reader: wr only moves in the game, rd only in the mixer.
+   A stream marked "end" stops by itself when its ring runs empty. ---- */
 #define RING 65536UL   /* frames, ~3 s */
+#define STREAMS 2
 
-static signed char *ring;
-static volatile unsigned long ring_wr, ring_rd;
-static volatile int stream_on, stream_stereo;
-static long stab_l[256], stab_r[256];   /* (s*v/8) << 16 and s*v/8 */
-static volatile unsigned long stream_gaps;
+struct Stream {
+    signed char *ring;
+    volatile unsigned long wr, rd;
+    volatile int on, stereo, end;
+    long tab_l[256], tab_r[256];   /* mono: tab_l + tab_r; stereo: left from tab_l, right from tab_r */
+    volatile unsigned long gaps;
+};
+static struct Stream streams[STREAMS];
 
-static void build_stream_tab(int v)
+static void build_stream_tab(struct Stream *st, int vl, int vr)
 {
     int s;
     for (s = -128; s < 128; s++) {
-        stab_l[(unsigned char)s] = (long)((s * v) >> 3) * 65536L;
-        stab_r[(unsigned char)s] = (s * v) >> 3;
+        st->tab_l[(unsigned char)s] = (long)((s * vl) >> 3) * 65536L;
+        st->tab_r[(unsigned char)s] = (s * vr) >> 3;
     }
 }
 
-static void mix_stream(void)
+static void mix_stream(struct Stream *st)
 {
-    unsigned long rd = ring_rd, avail = ring_wr - rd, n = avail < FRAMES ? avail : FRAMES, i;
+    unsigned long rd = st->rd, avail = st->wr - rd, n = avail < FRAMES ? avail : FRAMES, i;
+    const unsigned char *r = (const unsigned char *)st->ring;
     long *a = acc;
-    if (n < FRAMES) stream_gaps++;
-    if (stream_stereo) {
-        const unsigned char *r = (const unsigned char *)ring;
-        for (i = 0; i < n; i++, rd++) {
-            unsigned long k = (rd & (RING - 1)) * 2;
-            a[i] = stab_l[r[k]] + stab_r[r[k + 1]];
-        }
-    } else {
-        const unsigned char *r = (const unsigned char *)ring;
-        for (i = 0; i < n; i++, rd++) {
-            unsigned char x = r[rd & (RING - 1)];
-            a[i] = stab_l[x] + stab_r[x];
+    if (n < FRAMES) {
+        if (st->end) {
+            st->on = 0;    /* played out */
+        } else {
+            st->gaps++;
         }
     }
-    ring_rd = rd;
+    if (st->stereo) {
+        for (i = 0; i < n; i++, rd++) {
+            unsigned long k = (rd & (RING - 1)) * 2;
+            a[i] += st->tab_l[r[k]] + st->tab_r[r[k + 1]];
+        }
+    } else {
+        for (i = 0; i < n; i++, rd++) {
+            unsigned char x = r[rd & (RING - 1)];
+            a[i] += st->tab_l[x] + st->tab_r[x];
+        }
+    }
+    st->rd = rd;
 }
 
 static void render(int b)
@@ -155,7 +165,8 @@ static void render(int b)
     int i, k;
     memset(acc, 0, sizeof(acc));
     ObtainSemaphore(&lock);
-    if (stream_on) mix_stream();
+    for (k = 0; k < STREAMS; k++)
+        if (streams[k].on) mix_stream(&streams[k]);
     for (k = 0; k < VOICES; k++)
         if (voices[k].active) mix_voice(&voices[k]);
     ReleaseSemaphore(&lock);
@@ -352,7 +363,7 @@ int amiga_snd_init(void)
 void amiga_snd_quit(void)
 {
     int b, c;
-    stream_on = 0;
+    streams[0].on = streams[1].on = 0;
     if (proc != NULL) {
         Signal(&proc->pr_Task, SIGBREAKF_CTRL_C);
         while (proc_state != 2) Wait(1UL << parent_sig);
@@ -449,60 +460,75 @@ void amiga_snd_volume(int handle, int vl, int vr)
 }
 
 
-/* Music stream. vol 0..64. */
-int amiga_snd_stream_start(int stereo, int vol)
+/* Streams (0 music, 1 speech). vl, vr 0..64. */
+int amiga_snd_stream_start(int slot, int stereo, int vl, int vr)
 {
+    struct Stream *st = &streams[slot & 1];
     if (proc == NULL) return -1;
-    if (ring == NULL) {
-        ring = (signed char *)AllocVec(RING * 2, MEMF_ANY);
-        if (ring == NULL) return -1;
+    if (st->ring == NULL) {
+        st->ring = (signed char *)AllocVec(RING * 2, MEMF_ANY);
+        if (st->ring == NULL) return -1;
     }
     ObtainSemaphore(&lock);
-    stream_on = 0;
-    ring_wr = ring_rd = 0;
-    stream_stereo = stereo;
-    build_stream_tab(vol);
-    stream_on = 1;
+    st->on = 0;
+    st->wr = st->rd = 0;
+    st->stereo = stereo;
+    st->end = 0;
+    build_stream_tab(st, vl, vr);
+    st->on = 1;
     ReleaseSemaphore(&lock);
     return 0;
 }
 
-void amiga_snd_stream_stop(void)
+void amiga_snd_stream_stop(int slot)
 {
     if (proc == NULL) return;
     ObtainSemaphore(&lock);
-    stream_on = 0;
+    streams[slot & 1].on = 0;
     ReleaseSemaphore(&lock);
 }
 
-void amiga_snd_stream_volume(int vol)
+void amiga_snd_stream_volume(int slot, int vl, int vr)
 {
     if (proc == NULL) return;
     ObtainSemaphore(&lock);
-    build_stream_tab(vol);
+    build_stream_tab(&streams[slot & 1], vl, vr);
     ReleaseSemaphore(&lock);
+}
+
+/* No more data will come: the stream stops when its ring is empty. */
+void amiga_snd_stream_end(int slot)
+{
+    streams[slot & 1].end = 1;
+}
+
+int amiga_snd_stream_playing(int slot)
+{
+    return streams[slot & 1].on;
 }
 
 /* Frames the ring can take now. */
-long amiga_snd_stream_space(void)
+long amiga_snd_stream_space(int slot)
 {
-    if (!stream_on) return 0;
-    return (long)(RING - (ring_wr - ring_rd));
+    struct Stream *st = &streams[slot & 1];
+    if (!st->on || st->end) return 0;
+    return (long)(RING - (st->wr - st->rd));
 }
 
 /* n frames (mono bytes, or left/right byte pairs), at most the space. */
-void amiga_snd_stream_write(const signed char *frames, long n)
+void amiga_snd_stream_write(int slot, const signed char *frames, long n)
 {
-    unsigned long wr = ring_wr, at = wr & (RING - 1), first = RING - at;
-    int fb = stream_stereo ? 2 : 1;
-    if (!stream_on || n <= 0) return;
+    struct Stream *st = &streams[slot & 1];
+    unsigned long wr = st->wr, at = wr & (RING - 1), first = RING - at;
+    int fb = st->stereo ? 2 : 1;
+    if (!st->on || n <= 0) return;
     if ((unsigned long)n < first) first = (unsigned long)n;
-    memcpy(ring + at * fb, frames, first * fb);
-    if ((unsigned long)n > first) memcpy(ring, frames + first * fb, ((unsigned long)n - first) * fb);
-    ring_wr = wr + (unsigned long)n;   /* after the data */
+    memcpy(st->ring + at * fb, frames, first * fb);
+    if ((unsigned long)n > first) memcpy(st->ring, frames + first * fb, ((unsigned long)n - first) * fb);
+    st->wr = wr + (unsigned long)n;   /* after the data */
 }
 
-unsigned long amiga_snd_stream_gaps(void) { return stream_gaps; }
+unsigned long amiga_snd_stream_gaps(void) { return streams[0].gaps + streams[1].gaps; }
 
 /* The game's pump (engine/sound_amiga.cpp), called from the event loop. */
 void (*amiga_snd_pump_fn)(void);

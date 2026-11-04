@@ -291,3 +291,21 @@ Zapis bajtami do Chip RAM kosztował sam ~2,2% (44 tys. zapisów/s). Typowo 4–
 - Walka w lochu (`scene_dungeon_snd.sh`): z efektami 47,6 kl./s, **z muzyką 45,9**; miksowanie 1,7% CPU,
   odczyt z karty SD ~2% (próbki „other tasks” 5 → 41 z 1109), 0 przerw, 0 niedopełnień pierścienia
   w grze (1 przy samym starcie intro).
+
+### Paleta filmów (4.11.2026)
+
+Zgłoszenie: film w menu (intro po 30 s bezczynności) przez pierwsze sekundy dobry, potem złe kolory.
+Odtwarzacz (`storm_svid.cpp` `UpdatePalette`) zmienia kolory wprost w tablicy palety i ustawia tę samą
+paletę ponownie; `SDL_SetSurfacePalette` w `msdl_surface.c` wychodziło wtedy od razu, bez nowej wersji,
+a ekran ładuje paletę tylko przy zmianie wersji. Do tego dwie palety mogły mieć tę samą wersję. Teraz
+jeden licznik wersji dla wszystkich palet i nowa wersja przy każdym `SDL_SetSurfacePalette` – zrzuty z
+kilkunastu sekund intro mają dobre kolory. (Film jest w oryginalnym rozmiarze ~320×160, bez powiększenia
+na ekranie 8-bit – do zrobienia.)
+
+### Dźwięk, krok 3: mowa strumieniowo (4.11.2026)
+
+`utils/amiga_wavstream.hpp`: wspólny czytnik WAV z MPQ po kawałkach (muzyka – strumień 0, mowa –
+strumień 1, każdy z własnym pierścieniem, głośnością i panoramą; inne częstotliwości niż 22 050 Hz
+przez krok do najbliższej próbki). `SoundSample::SetChunkStream` czyta tylko nagłówek (długość dla
+`GetSFXLength` – przewijanie tekstów zadań), plik otwiera się przy odtworzeniu; strumień mowy kończy się
+sam, gdy plik się skończy i pierścień opróżni (`amiga_snd_stream_end`). Odsłuch: do zrobienia.
