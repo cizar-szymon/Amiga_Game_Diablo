@@ -14,7 +14,7 @@ import os
 import zipfile
 
 KEEP = {"data": (".PAK",), "music": (".RAW",)}
-EXECUTABLES = {"OpenDUNE", "MakeMusic"}	# the programs: must get the Amiga's E bit
+EXECUTABLES = {"devilutionx"}	# the program: must get the Amiga's E bit
 
 
 def put(z, path, arcname, method=zipfile.ZIP_DEFLATED):

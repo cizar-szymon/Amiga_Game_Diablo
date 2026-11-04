@@ -1,0 +1,26 @@
+DiabloWarp - release history
+============================
+
+Reporting a bug: press F10 in the game and send the files from
+RAM:Diablo-report (the save, diablo.ini and a text with the version) with a
+description of what happened and the version number (bottom left of the main
+menu, or "Version devilutionx" in the Shell).
+
+
+0.46 (beta) - 4 November 2026
+-----------------------------
+
+The first public release.
+
+- Diablo with the DevilutionX engine (1.6.0-dev) for AmigaOS 3 and the Warp
+  cards: an own SDL2 layer, an 8-bit Picasso96 screen of 640x480
+- Renderer for the 68060: only what changed is drawn and written to the card,
+  the card's blitter scrolls; 46 frames per second in a dungeon fight,
+  91 standing in Tristram (Warp 7060, 100 MHz)
+- Sound on Paula: effects, music and speech
+- Videos twice the size
+- English, Polish and German; Polish speech with a converted pl.mpq
+- "Light Steps" option for faster walking in the dungeon
+- Workbench icon with Tool Types (DATADIR, SAVEDIR, LANGUAGE, SHOWFPS,
+  SKIPINTRO, NOSOUND), stack of 1000000 bytes
+- Bug report on F10

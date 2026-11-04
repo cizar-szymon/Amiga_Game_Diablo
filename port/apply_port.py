@@ -651,6 +651,96 @@ CHANGES = [
      "#else\n"
      "\tconst bool readWholeFile = handle.handle->type == SDL_RWOPS_UNKNOWN;\n"
      "#endif\n"),
+    # Release number (port/VERSION -> Source/amiga_version.h): in the main
+    # menu's corner after the upstream version, and as $VER (Version command).
+    ("Source/diablo.cpp",
+     "\t*BufCopy(gszProductName, PROJECT_NAME, \" v\", PROJECT_VERSION) = '\\0';\n",
+     "#ifdef __amigaos__\n"
+     "\t*BufCopy(gszProductName, PROJECT_NAME, \" v\", PROJECT_VERSION, \" Warp \", DIABLO_WARP_VERSION) = '\\0';\n"
+     "#else\n"
+     "\t*BufCopy(gszProductName, PROJECT_NAME, \" v\", PROJECT_VERSION) = '\\0';\n"
+     "#endif\n"),
+    ("Source/diablo.cpp",
+     "#include \"diablo.h\"\n",
+     "#include \"diablo.h\"\n#ifdef __amigaos__\n#include \"amiga_version.h\"\n#endif\n"),
+    ("Source/main.cpp",
+     "#ifdef __amigaos__\nextern \"C\" void amiga_args(int *argc, char ***argv);\n#endif\n",
+     "#ifdef __amigaos__\nextern \"C\" void amiga_args(int *argc, char ***argv);\n"
+     "#include \"amiga_version.h\"\n"
+     "extern \"C\" __attribute__((used)) const char amiga_ver[] = \"$VER: devilutionx \" DIABLO_WARP_VERSION \" (\" DIABLO_WARP_DATE \")\";\n"
+     "#endif\n"),
+    # F10: a report for a bug (PORTING_PLAN): the game saved as from its menu,
+    # then the save, the settings and a short text with the version to
+    # RAM:Diablo-report/ (single player; F10 was a multiplayer quick message,
+    # and this port has no network game).
+    ("Source/diablo.cpp",
+     "\t\t    (i < 4) ? static_cast<uint32_t>(SDLK_F9) + i : static_cast<uint32_t>(SDLK_UNKNOWN),\n",
+     "#ifdef __amigaos__\n"
+     "\t\t    (i < 4 && i != 1) ? static_cast<uint32_t>(SDLK_F9) + i : static_cast<uint32_t>(SDLK_UNKNOWN),\n"
+     "#else\n"
+     "\t\t    (i < 4) ? static_cast<uint32_t>(SDLK_F9) + i : static_cast<uint32_t>(SDLK_UNKNOWN),\n"
+     "#endif\n"),
+    ("Source/diablo.cpp",
+     "\toptions.Keymapper.AddAction(\n\t    \"PauseGame\",\n",
+     "#ifdef __amigaos__\n"
+     "\toptions.Keymapper.AddAction(\n"
+     "\t    \"BugReport\",\n"
+     "\t    N_(\"Bug Report\"),\n"
+     "\t    N_(\"Saves the game and a report for a bug to RAM:Diablo-report.\"),\n"
+     "\t    SDLK_F10,\n"
+     "\t    AmigaBugReport,\n"
+     "\t    nullptr,\n"
+     "\t    CanPlayerTakeAction);\n"
+     "#endif\n"
+     "\toptions.Keymapper.AddAction(\n\t    \"PauseGame\",\n"),
+    ("Source/diablo.cpp",
+     "void SetApplicationVersions()\n{\n",
+     "#ifdef __amigaos__\n"
+     "extern \"C\" const char *amiga_save_path(void);\n"
+     "/** F10: the game saved, then copies for a bug report in RAM:Diablo-report/. */\n"
+     "void AmigaBugReport()\n"
+     "{\n"
+     "\tif (gbIsMultiplayer || !gbRunGame || MyPlayer == nullptr)\n"
+     "\t\treturn;\n"
+     "\tgamemenu_save_game(false);\n"
+     "\tCreateDir(\"RAM:Diablo-report\");\n"
+     "\tconst auto copy = [](const std::string &from, const char *to) {\n"
+     "\t\tFILE *in = std::fopen(from.c_str(), \"rb\");\n"
+     "\t\tif (in == nullptr) return false;\n"
+     "\t\tFILE *out = std::fopen(to, \"wb\");\n"
+     "\t\tif (out == nullptr) { std::fclose(in); return false; }\n"
+     "\t\tchar buf[8192];\n"
+     "\t\tsize_t n;\n"
+     "\t\twhile ((n = std::fread(buf, 1, sizeof(buf), in)) > 0) std::fwrite(buf, 1, n, out);\n"
+     "\t\tstd::fclose(in);\n"
+     "\t\tstd::fclose(out);\n"
+     "\t\treturn true;\n"
+     "\t};\n"
+     "\tconst bool ok = copy(amiga_save_path(), \"RAM:Diablo-report/Diablo-state.sv\");\n"
+     "\tcopy(paths::ConfigPath() + \"diablo.ini\", \"RAM:Diablo-report/diablo.ini\");\n"
+     "\tif (FILE *t = std::fopen(\"RAM:Diablo-report/Diablo-state.txt\", \"w\")) {\n"
+     "\t\tstd::fprintf(t, \"%s\\nhero %s, level %d, dungeon level %d (type %d)\\nsave %s\\n\", gszProductName,\n"
+     "\t\t    MyPlayer->_pName, MyPlayer->getCharacterLevel(), currlevel, static_cast<int>(leveltype), amiga_save_path());\n"
+     "\t\tstd::fclose(t);\n"
+     "\t}\n"
+     "\tEventPlrMsg(ok ? \"Report saved: RAM:Diablo-report\" : \"Report: the save could not be copied\", UiFlags::ColorWhite);\n"
+     "}\n"
+     "#endif\n"
+     "\n"
+     "void SetApplicationVersions()\n{\n"),
+    ("Source/pfile.cpp",
+     "\tpfile_write_hero();\n\tsfile_write_stash();\n}\n\n} // namespace devilution\n",
+     "\tpfile_write_hero();\n\tsfile_write_stash();\n}\n\n"
+     "#ifdef __amigaos__\n"
+     "/** The current game's save file (the F10 report, diablo.cpp). */\n"
+     "extern \"C\" const char *amiga_save_path(void)\n"
+     "{\n"
+     "\tstatic std::string path;\n"
+     "\tpath = GetSavePath(gSaveNumber);\n"
+     "\treturn path.c_str();\n"
+     "}\n"
+     "#endif\n"
+     "\n} // namespace devilution\n"),
     # Videos on the 8-bit screen: the game cannot scale indexed output and
     # shows them at their size (~320x160); here whole multiples (2x),
     # every source pixel doubled across and every row repeated.
@@ -803,6 +893,17 @@ def apply(tree, upstream):
         with open(path, "wb") as f:
             f.write(out)
         print("changed", rel)
+    # the release number (port/VERSION, one line "0.xx") for the menu and $VER
+    import datetime
+    version = open(os.path.join(here, "VERSION")).read().strip()
+    header = ('#pragma once\n// made by port/apply_port.py from port/VERSION\n'
+              '#define DIABLO_WARP_VERSION "%s"\n#define DIABLO_WARP_DATE "%s"\n'
+              % (version, datetime.date.today().strftime("%d.%m.%Y")))
+    vpath = os.path.join(tree, "Source", "amiga_version.h")
+    if not os.path.exists(vpath) or open(vpath).read() != header:
+        with open(vpath, "w") as f:
+            f.write(header)
+        print("version", version)
     overlay = os.path.join(here, "overlay")
     for root, _dirs, files in os.walk(overlay):
         for name in files:

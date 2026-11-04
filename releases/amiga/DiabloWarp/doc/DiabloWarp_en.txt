@@ -1,0 +1,133 @@
+DiabloWarp - Diablo for the Amiga with a Warp card
+==================================================
+
+Version 0.46 (beta), 4 November 2026
+
+Diablo (Blizzard, 1996) on the Amiga: DevilutionX, the open source engine of
+Diablo, ported to AmigaOS 3 and tuned for the Warp accelerator cards.
+
+This is a special port for the Amiga 500 / 1200 / 3000 / 4000 with a Warp
+card: Warp 560, Warp 1240, Warp 1260, Warp 1260 Extreme or Warp 7060. It was
+ported and tested on an A1200 with a Warp 1260 Extreme and on an A4000 with a
+Warp 7060 (68060 at 100 MHz). The picture is put together in Fast RAM and only
+what changed is written to the card; the card's blitter scrolls the screen.
+Other Amigas with a 68040/68060 and a Picasso96 card run it as well, slower.
+
+
+Requirements
+------------
+
+- An Amiga with a Warp card (68060 or 68040)
+- Fast RAM: about 64 MB free (the game uses about 40 MB)
+- AmigaOS 3.2 (tested 3.2.2.1), Picasso96 with an 8-bit 640x480 screen mode
+- Paula sound (audio.device)
+- The game data: diabdat.mpq of your own Diablo (CD or GOG), see below
+
+
+Installing
+----------
+
+1. Unpack the archive, for example:
+      UnZip DiabloWarp-0.46.zip -d Work:Games
+2. Copy diabdat.mpq from your Diablo CD or the GOG version into the drawer
+   DiabloWarp/data. The game data is not included.
+3. Start the game from the devilutionx icon.
+
+Saves and settings are kept in DiabloWarp/save.
+
+
+What the game has
+-----------------
+
+- Diablo with the DevilutionX engine (1.6.0-dev): single player, all of the
+  game, quality-of-life additions of DevilutionX (item labels, auto pick-up
+  of gold, health bars of monsters and more, in the game's settings)
+- Speed on a 68060 at 100 MHz (Warp 7060, frames per second):
+      Tristram, standing         91
+      Tristram, walking          47-66
+      dungeon, walking           17-26
+      dungeon, fighting          46
+- Sound on Paula: effects, music and speech (stereo, 22 kHz)
+- Videos (intro, Diablo's end) shown twice the size
+- Languages: English, Polish and German (and the other languages of
+  DevilutionX), chosen in the game's settings or by a Tool Type
+- Polish speech by professional voice actors (optional, see below)
+- A bug report on F10
+
+
+Keys
+----
+
+The mouse and keys of the original Diablo, among them:
+    P        pause
+    Esc      game menu (save, options, quit)
+    Tab      map
+    I / C    inventory / character
+    Q / S    quests / spell book
+    1 - 8    belt
+    F10      bug report (see below)
+All keys can be changed in the game's settings (Keymapping).
+
+
+Settings
+--------
+
+In the game: Settings in the main menu or Options in the game menu
+(language, frame counter, light steps, volumes, gameplay additions).
+
+"Light Steps" (graphics settings): with "On" the player's light moves from
+tile to tile instead of smoothly; "Auto" does this only when walking runs
+below the frame rate set with "Light Steps Below FPS". Off by default
+(as the original).
+
+Tool Types of the devilutionx icon (the same words also work as arguments in
+the Shell, for example: devilutionx LANGUAGE=de):
+    DATADIR=dir       where diabdat.mpq is (default PROGDIR:data)
+    SAVEDIR=dir       saves and diablo.ini (default PROGDIR:save)
+    LANGUAGE=xx       language: en, pl, de, ...
+    SHOWFPS=YES|NO    frame counter on or off
+    SKIPINTRO         no videos at the start
+    NOSOUND           no sound
+Tool Types in brackets, like (SKIPINTRO), are off: remove the brackets to use
+them.
+
+
+Polish speech (optional)
+------------------------
+
+DevilutionX has a Polish dub recorded by professional voice actors
+(WiAParker): pl.mpq from the devilutionx-assets releases on GitHub. Its speech
+is in MP3; this port plays it after a conversion to the original's format,
+made once on a PC with tools/voicepack/convert.sh from the source repository
+(ffmpeg and Docker). Copy the resulting pl.mpq into DiabloWarp/data and choose
+Polish in the settings.
+
+
+Bug reports
+-----------
+
+Press F10 in the game: the game is saved and a report is written to
+RAM:Diablo-report (the save, diablo.ini and a short text with the version).
+Send these files with a description of what happened and the version number
+(bottom left of the main menu, or "Version devilutionx" in the Shell).
+
+
+Not in this version
+-------------------
+
+- Multiplayer and network games
+- Diablo: Hellfire is not tested
+
+
+Credits and licence
+-------------------
+
+Diablo (c) 1996 Blizzard Entertainment. The game data is not included and is
+not distributed with this port.
+
+DevilutionX (c) the DevilutionX team (diasurgical), released under the
+Sustainable Use License (doc/LICENSE.md): free of charge, for non-commercial
+use. This is a modified version of DevilutionX: ported to AmigaOS 3 for the
+Warp cards (own SDL2 layer, renderer, sound and Amiga additions).
+
+Polish speech: WiAParker (devilutionx-assets).

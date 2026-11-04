@@ -1,0 +1,26 @@
+DiabloWarp - historia wydań
+===========================
+
+Zgłaszanie błędu: naciśnij F10 w grze i wyślij pliki z RAM:Diablo-report
+(zapis, diablo.ini i opis z numerem wersji) z opisem, co się stało, i
+numerem wersji (w lewym dolnym rogu menu głównego albo "Version devilutionx"
+w Shellu).
+
+
+0.46 (beta) - 4 listopada 2026
+------------------------------
+
+Pierwsze publiczne wydanie.
+
+- Diablo na silniku DevilutionX (1.6.0-dev) dla AmigaOS 3 i kart Warp:
+  własna warstwa SDL2, ekran Picasso96 640x480 w 8 bitach
+- renderer dla 68060: rysowane i wysyłane na kartę jest tylko to, co się
+  zmieniło, przewijanie robi blitter karty; 46 klatek na sekundę w walce w
+  lochu, 91 w postoju w Tristram (Warp 7060, 100 MHz)
+- dźwięk przez Paulę: efekty, muzyka i mowa
+- filmy powiększone dwukrotnie
+- polski, angielski i niemiecki; polski dubbing z przerobionym pl.mpq
+- opcja „Light Steps” na szybszy marsz w lochu
+- ikona z Tool Types (DATADIR, SAVEDIR, LANGUAGE, SHOWFPS, SKIPINTRO,
+  NOSOUND), stos 1000000 bajtów
+- raport o błędzie pod F10

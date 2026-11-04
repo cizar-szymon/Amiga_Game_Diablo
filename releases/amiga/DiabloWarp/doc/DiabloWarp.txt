@@ -1,0 +1,132 @@
+DiabloWarp - Diablo na Amige z karta Warp
+=========================================
+
+Wersja 0.46 (beta), 4 listopada 2026
+
+Diablo (Blizzard, 1996) na Amidze: DevilutionX, otwarty silnik Diablo,
+przeniesiony na AmigaOS 3 i dostrojony do kart przyspieszajacych Warp.
+
+To specjalny port dla Amigi 500 / 1200 / 3000 / 4000 z karta Warp: Warp 560,
+Warp 1240, Warp 1260, Warp 1260 Extreme lub Warp 7060. Byl przenoszony i
+testowany na A1200 z Warp 1260 Extreme i na A4000 z Warp 7060 (68060 100 MHz).
+Obraz sklada sie w Fast RAM, a na karte trafia tylko to, co sie zmienilo;
+przewijanie robi blitter karty. Inne Amigi z 68040/68060 i karta Picasso96
+tez go uruchomia, ale wolniej.
+
+
+Wymagania
+---------
+
+- Amiga z karta Warp (68060 lub 68040)
+- Fast RAM: ok. 64 MB wolnej (gra zajmuje ok. 40 MB)
+- AmigaOS 3.2 (sprawdzone 3.2.2.1), Picasso96 z trybem 640x480 w 8 bitach
+- dzwiek przez Paule (audio.device)
+- dane gry: diabdat.mpq z wlasnego Diablo (CD albo GOG), nizej
+
+
+Instalacja
+----------
+
+1. Rozpakuj archiwum, np.:
+      UnZip DiabloWarp-0.46.zip -d Work:Games
+2. Skopiuj diabdat.mpq z plyty Diablo albo wersji GOG do szuflady
+   DiabloWarp/data. Danych gry nie ma w paczce.
+3. Uruchom gre ikona devilutionx.
+
+Zapisy i ustawienia sa w DiabloWarp/save.
+
+
+Co ma gra
+---------
+
+- Diablo na silniku DevilutionX (1.6.0-dev): gra jednoosobowa, cala gra,
+  udogodnienia DevilutionX (nazwy przedmiotow, podnoszenie zlota, paski zycia
+  potworow i inne, w ustawieniach gry)
+- szybkosc na 68060 100 MHz (Warp 7060, klatek na sekunde):
+      Tristram, postoj           91
+      Tristram, marsz            47-66
+      loch, marsz                17-26
+      loch, walka                46
+- dzwiek przez Paule: efekty, muzyka i mowa (stereo, 22 kHz)
+- filmy (intro, zakonczenie) powiekszone dwukrotnie
+- jezyki: polski, angielski i niemiecki (oraz inne jezyki DevilutionX), do
+  wyboru w ustawieniach gry albo Tool Typem
+- polski dubbing zawodowych aktorow (dodatkowo, nizej)
+- raport o bledzie pod F10
+
+
+Klawisze
+--------
+
+Mysz i klawisze oryginalnego Diablo, m.in.:
+    P        pauza
+    Esc      menu gry (zapis, opcje, wyjscie)
+    Tab      mapa
+    I / C    ekwipunek / postac
+    Q / S    zadania / ksiega czarow
+    1 - 8    pas
+    F10      raport o bledzie (nizej)
+Kazdy klawisz mozna zmienic w ustawieniach gry (Klawisze).
+
+
+Ustawienia
+----------
+
+W grze: Ustawienia w menu glownym albo Opcje w menu gry (jezyk, licznik
+klatek, swiatlo skokami, glosnosc, udogodnienia).
+
+"Light Steps" (ustawienia grafiki): przy "On" swiatlo postaci przeskakuje z
+plytki na plytke zamiast przesuwac sie plynnie; "Auto" robi to tylko wtedy,
+gdy marsz idzie wolniej niz prog "Light Steps Below FPS". Domyslnie wylaczone
+(jak w oryginale).
+
+Tool Types ikony devilutionx (te same slowa dzialaja tez jako argumenty w
+Shellu, np.: devilutionx LANGUAGE=de):
+    DATADIR=katalog    gdzie jest diabdat.mpq (domyslnie PROGDIR:data)
+    SAVEDIR=katalog    zapisy i diablo.ini (domyslnie PROGDIR:save)
+    LANGUAGE=xx        jezyk: pl, en, de, ...
+    SHOWFPS=YES|NO     licznik klatek wlaczony lub wylaczony
+    SKIPINTRO          bez filmow na starcie
+    NOSOUND            bez dzwieku
+Tool Types w nawiasach, jak (SKIPINTRO), sa wylaczone: usun nawiasy, zeby
+ich uzyc.
+
+
+Polski dubbing (dodatkowo)
+--------------------------
+
+DevilutionX ma polski dubbing nagrany przez zawodowych aktorow (WiAParker):
+pl.mpq z wydan devilutionx-assets na GitHubie. Mowa jest w nim w MP3; ten
+port odtwarza ja po zamianie na format oryginalu, robionej raz na PC
+skryptem tools/voicepack/convert.sh z repozytorium zrodel (ffmpeg i Docker).
+Powstaly pl.mpq skopiuj do DiabloWarp/data i wybierz polski w ustawieniach.
+
+
+Zglaszanie bledow
+-----------------
+
+Nacisnij F10 w grze: gra sie zapisze, a w RAM:Diablo-report powstanie raport
+(zapis, diablo.ini i krotki opis z numerem wersji). Wyslij te pliki z opisem,
+co sie stalo, i numerem wersji (w lewym dolnym rogu menu glownego albo
+"Version devilutionx" w Shellu).
+
+
+Czego nie ma w tej wersji
+-------------------------
+
+- gry wieloosobowej i sieciowej
+- Diablo: Hellfire nie jest sprawdzone
+
+
+Autorzy i licencja
+------------------
+
+Diablo (c) 1996 Blizzard Entertainment. Danych gry nie ma w paczce i nie sa
+rozpowszechniane z tym portem.
+
+DevilutionX (c) zespol DevilutionX (diasurgical), na licencji Sustainable Use
+License (doc/LICENSE.md): bezplatnie, do uzytku niekomercyjnego. To
+zmodyfikowana wersja DevilutionX: przeniesiona na AmigaOS 3 dla kart Warp
+(wlasna warstwa SDL2, renderer, dzwiek i dodatki dla Amigi).
+
+Polski dubbing: WiAParker (devilutionx-assets).
