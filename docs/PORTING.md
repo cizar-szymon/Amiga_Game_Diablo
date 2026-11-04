@@ -353,4 +353,10 @@ Stary port (DevilutionX 1.0.0, 22.02.2020, SDL1, ekran 640×480×8) uruchomiony 
 użytkownika tylko do odczytu, zapisy obok kopii), postać ANDY z tego samego zapisu w lochu (poziom 2).
 Licznik `-f` na zrzutach: **12–13 kl./s** w lochu (postój i walka, obraz w całości co klatkę).
 Nowy port na tej samej Amidze: walka w lochu 48 kl./s (z dźwiękiem 46–47), marsz po lochu 18–30 kl./s.
-Postaci WARP (zapis nowego portu) stara wersja nie wczytuje, więc miasta nie porównano.
+Uwaga: stara wersja trzyma zapisy w `ENVARC:diasurgical/devilution/` (nie w swoim katalogu ani w
+`--data-dir`) i zapisuje przy każdym wyjściu, także po Ctrl-C – pierwsze dwa przebiegi wczytały i
+nadpisały postać użytkownika ANDY (stan po teście skopiowany na PC: `private/amiga2-envarc-after-test`).
+Pomiar właściwy (za zgodą użytkownika): zapis AR (`single_1.sv.bak` nowego portu) wgrany jako
+`ENVARC:…/single_0.sv`, ANDY zachowany w `RAM:` i przywrócony po teście. Ta sama scena walki ze
+szkieletami co `scene_dungeon.sh`: **13 kl./s** (stary port, bez trybu bez obrażeń – AR ginie po ~30 s)
+wobec **48 kl./s** nowego portu (46–47 z dźwiękiem).
