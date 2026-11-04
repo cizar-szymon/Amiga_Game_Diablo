@@ -388,3 +388,5 @@ skopiowane (PC: `private/amiga2-envarc-before-compare`, Amiga: `RAM:envarc-bak`)
 
 Stary port w mieście: nowa postać (zapisu WARP nie wczyta), więc inne miejsce startu. W lochu ta sama
 postać AR i ten sam zapis; stary port bez trybu bez obrażeń (AR ginie po ~30 s walki).
+
+Krok B (bez kopii sceny do bufora gry przy ruchu kamery): **nie robimy** (decyzja użytkownika 4.11.2026).
