@@ -369,3 +369,22 @@ Opcja „Light Radius” (100/85/70% promienia światła postaci, tylko w `Proce
 poziomu), rysuje je ta sama pętla z tablicą światła; przy świetle zmieniającym się co takt i tak działa
 rysowanie bezpośrednie całego obrazu. Opcja usunięta (decyzja użytkownika). Płytki w VRAM: za mało pamięci
 karty (17–27 MB na poziom z wersjami światła).
+
+### Porównanie ze starym portem, 3 sceny, 100 MHz (4.11.2026, Amiga 2: A4000 + Warp 7060)
+
+Zegar ustawiony `WarpTool CPUFreqHz=100000000` (wcześniej na Amidze 2 było 105 MHz – wszystkie
+wcześniejsze dzisiejsze pomiary na niej są przy 105). Stary port sterowany myszą przez
+`tools/amiga/mouse.c` (zdarzenia `input.device`: `move`, `click`, `hold X Y MS`), kl./s z licznika `-f`
+na zrzutach (`tools/fpscrop.py`); zapisy starego portu w `ENVARC:diasurgical/devilution` przed testem
+skopiowane (PC: `private/amiga2-envarc-before-compare`, Amiga: `RAM:envarc-bak`) i po teście przywrócone
+(porównane bajt po bajcie).
+
+| Scena | stary port (2020) | nowy port (z dźwiękiem) |
+|---|---|---|
+| Tristram, postój | 17 | **91** |
+| Tristram, marsz (4 kierunki × 5 s) | 13–17 | **47–66** |
+| loch, marsz (AR, 4 kierunki × 5 s) | 10–13 | **17–26** |
+| loch, walka ze szkieletami (AR) | 11–13 | **46** |
+
+Stary port w mieście: nowa postać (zapisu WARP nie wczyta), więc inne miejsce startu. W lochu ta sama
+postać AR i ten sam zapis; stary port bez trybu bez obrażeń (AR ginie po ~30 s walki).
