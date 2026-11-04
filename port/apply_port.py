@@ -142,6 +142,11 @@ CHANGES = [
      "    MaskType maskType, const uint8_t *tbl)\n{\n#ifdef DEBUG_RENDER_OFFSET_X\n\tposition.x += DEBUG_RENDER_OFFSET_X;\n",
      "    MaskType maskType, const uint8_t *tbl)\n{\n"
      "#ifdef __amigaos__\n"
+     "\tif (amiga_cells::mode == amiga_cells::Mode::Record) {\n"
+     "\t\tamiga_cells::RecordAt(out, position.x, position.y - height + 1, DunFrameWidth, height,\n"
+     "\t\t    amiga_cells::PtrKey(src), (static_cast<uint32_t>(tile) << 8) | static_cast<uint32_t>(maskType), amiga_cells::PtrKey(tbl));\n"
+     "\t\treturn;\n"
+     "\t}\n"
      "\tif (amiga_cells::mode != amiga_cells::Mode::Off) {\n"
      "\t\tamiga_cells::InterceptTile(out, position.x, position.y - height + 1, DunFrameWidth, height,\n"
      "\t\t    amiga_cells::PtrKey(src), (static_cast<uint32_t>(tile) << 8) | static_cast<uint32_t>(maskType), amiga_cells::PtrKey(tbl),\n"

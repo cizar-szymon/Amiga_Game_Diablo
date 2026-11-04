@@ -127,6 +127,12 @@ inline void Intercept(const Surface &out, int x, int y, int w, int h, uint32_t k
 	mode = Mode::Render;
 }
 
+/** Record pass only: the primitive at x, y (relative to `out`), without a draw closure. */
+inline void RecordAt(const Surface &out, int x, int y, int w, int h, uint32_t k1, uint32_t k2, uint32_t k3)
+{
+	RecordPrimitive(x + out.region.x - sceneOX, y + out.region.y - sceneOY, w, h, k1, k2, k3);
+}
+
 /** Scratch surface (64x64, 8-bit) for InterceptTile. */
 SDL_Surface *TileScratch();
 
