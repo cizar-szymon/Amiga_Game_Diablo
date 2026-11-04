@@ -60,6 +60,7 @@ DirtyRect fullRect;
 
 int envFull = -1, envVerify = -1, envStats = -1, envNoGuard = -1, envNoSkip = -1;
 bool noSkip = false;
+int envClear = -1;
 
 // statistics
 unsigned long stFrames, stFull, stDirty, stCells, stRects, stRecord, stRender, stCopy, stShift, stT0;
@@ -291,7 +292,11 @@ int BuildDirtyRects(int &visibleCells)
 					// cells along the edges in that direction are drawn again.
 					const unsigned edges = EdgeBits(wcx, wcy, camX, camY);
 					const unsigned moved = (camX != prevCamX ? 5U : 0U) | (camY != prevCamY ? 10U : 0U);
-					if (prevValid && WasFullyVisible(wcx, wcy) && (edges & moved) == 0) {
+					// reusable when the part visible now was visible last frame
+					// (moved by the camera): also cells cut by the view edge
+					const int px0 = cr.x + camX - prevCamX, py0 = cr.y + camY - prevCamY;
+					const bool wasVisible = px0 >= 0 && py0 >= 0 && px0 + cr.w <= viewW && py0 + cr.h <= viewH;
+					if (prevValid && wasVisible && (edges & moved) == 0) {
 						const int px = wcx - p.bx, py = wcy - p.by;
 						if (px >= 0 && py >= 0 && px < GridW && py < GridH && p.h[py][px] == g.h[gy][gx])
 							dirty = false;
@@ -639,8 +644,12 @@ void DrawScene(const Surface &out, int firstTileX, int firstTileY, int offsetX, 
 		drawScene(SceneSurface());
 		dirty = visible;
 	} else if (numRects > 0) {
-		for (int i = 0; i < numRects; i++)
-			ClearScene(rects[i]);
+		// no clearing: every pixel of the view is drawn by some tile (the
+		// verify mode compares with a full draw into a cleared buffer, so an
+		// uncovered pixel would show there); ENV:DIABLO_CLEAR clears again
+		if (Env(envClear, "DIABLO_CLEAR"))
+			for (int i = 0; i < numRects; i++)
+				ClearScene(rects[i]);
 		traceGuard = Env(envVerify, "DIABLO_VERIFY_RENDER");
 		curTile = -1;
 		mode = Mode::Render;
@@ -659,6 +668,37 @@ void DrawScene(const Surface &out, int firstTileX, int firstTileY, int offsetX, 
 
 	if (Env(envVerify, "DIABLO_VERIFY_RENDER"))
 		Verify(drawScene);
+
+	// test: RAM:cells-dump exists -> the scene and this frame's dirty
+	// rectangles to RAM:cells.raw (tools/vdiff.py shows them), file deleted
+	{
+		static unsigned long lastCheck;
+		const unsigned long now = SDL_GetTicks();
+		if (now - lastCheck > 500) {
+			lastCheck = now;
+			if (FILE *t = std::fopen("RAM:cells-dump", "rb")) {
+				std::fclose(t);
+				std::remove("RAM:cells-dump");
+				if (FILE *f = std::fopen("RAM:cells.raw", "wb")) {
+					const uint8_t hdr[6] = { static_cast<uint8_t>(viewW >> 8), static_cast<uint8_t>(viewW), static_cast<uint8_t>(viewH >> 8),
+						static_cast<uint8_t>(viewH), static_cast<uint8_t>(numRects >> 8), static_cast<uint8_t>(numRects) };
+					std::fwrite(hdr, 1, 6, f);
+					for (int pass = 0; pass < 2; pass++)
+						for (int y = 0; y < viewH; y++)
+							std::fwrite(ScenePtr(0, y), 1, viewW, f);
+					for (int i = 0; i < numRects; i++) {
+						const int16_t v[4] = { static_cast<int16_t>(rects[i].x), static_cast<int16_t>(rects[i].y), static_cast<int16_t>(rects[i].w), static_cast<int16_t>(rects[i].h) };
+						for (int16_t e : v) {
+							const uint8_t b[2] = { static_cast<uint8_t>(e >> 8), static_cast<uint8_t>(e) };
+							std::fwrite(b, 1, 2, f);
+						}
+					}
+					std::fclose(f);
+					SDL_Log("cells: dumped the scene and %d dirty rectangles to RAM:cells.raw", numRects);
+				}
+			}
+		}
+	}
 
 	// 4. the clean scene into the game's buffer (overlays are drawn on top of
 	// it). With the camera still, the game's buffer differs from the new

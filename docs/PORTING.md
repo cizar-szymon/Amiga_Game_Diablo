@@ -184,3 +184,19 @@ Każde otwarcie i zamknięcie ekranu Picasso96 gubi w Fast RAM dokładnie tyle, 
 blokady bitmapy). Test: `tools/amiga/screentest.c` (`screentest rundy krok głębia exclusive`), wynik
 powtarzalny. To nie gra – dotyczy każdego programu z własnym ekranem RTG. Do zgłoszenia autorowi
 oprogramowania RTG Warpa.
+
+### Dalsze kroki wydajności (4.11.2026, noc, Amiga 1, stały stan gry)
+
+| Zmiana | loch, walka | Tristram, postój | Tristram, marsz (`scene_walk`) |
+|---|---|---|---|
+| panel porównywany tylko w kolumnach zgłoszonych przez grę | 24,7 | 43,6 | – |
+| przesunięcia zamiast dzieleń, `-fno-threadsafe-statics` | 25,2 | 44,3 | – |
+| kopie bufora płytek przez `memcpy` (było: bajt po bajcie z `MULS.L` na bajt) | 26,4 | 46,4 | – |
+| bez czyszczenia brudnych prostokątów (każdy piksel pokrywa jakaś płytka; kontrola: 0 różnic) | 27,3 | 47,4 | 30–35 |
+| **komórki przecięte brzegiem widoku używane ponownie** (wcześniej zawsze brudne: pasy 15+17 wierszy co klatkę) | **42,2 (23 ms)** | **82,8 (12 ms)** | **38–52** |
+
+- Komórki 16×16 sprawdzone: wolniej (więcej płytek przycinanych brzegiem prostokąta, droższy zapis).
+- `RAM:cells-dump` (plik-flaga) → `RAM:cells.raw` z obrazem sceny i brudnymi prostokątami (`tools/vdiff.py`).
+- Marsz w lochu (12–16 kl./s) zostaje słaby: światło postaci przesuwa się płynnie co takt (tak jak w oryginale,
+  `ChangeLightOff`), więc prawie cały widok jest co klatkę inny. Ewentualna opcja „światło skokami co płytkę”
+  zmieniłaby wygląd – do decyzji użytkownika.
