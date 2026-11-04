@@ -69,8 +69,8 @@ CHANGES = [
     ("Source/engine/render/blit_impl.hpp",
      "namespace devilution {\n",
      "#ifdef __amigaos__\n"
-     "extern \"C\" void amiga_blit_map(unsigned char *dst, const unsigned char *src, unsigned n, const unsigned char *map);\n"
-     "extern \"C\" void amiga_blit_blend_map(unsigned char *dst, const unsigned char *src, unsigned n, const unsigned char *map, const unsigned char *pal);\n"
+     "extern \"C\" void (*amiga_blit_map_fn)(unsigned char *dst, const unsigned char *src, unsigned n, const unsigned char *map);\n"
+     "extern \"C\" void (*amiga_blit_blend_map_fn)(unsigned char *dst, const unsigned char *src, unsigned n, const unsigned char *map, const unsigned char *pal);\n"
      "#endif\n"
      "\n"
      "namespace devilution {\n"),
@@ -78,14 +78,14 @@ CHANGES = [
      "inline DVL_NO_INLINE DVL_ATTRIBUTE_HOT void BlitPixelsWithMap(uint8_t *DVL_RESTRICT dst, const uint8_t *DVL_RESTRICT src, unsigned length, const uint8_t *DVL_RESTRICT colorMap)\n{\n\tDVL_ASSUME(length != 0);\n",
      "inline DVL_NO_INLINE DVL_ATTRIBUTE_HOT void BlitPixelsWithMap(uint8_t *DVL_RESTRICT dst, const uint8_t *DVL_RESTRICT src, unsigned length, const uint8_t *DVL_RESTRICT colorMap)\n{\n\tDVL_ASSUME(length != 0);\n"
      "#ifdef __amigaos__\n"
-     "\tamiga_blit_map(dst, src, length, colorMap);\n"
+     "\tamiga_blit_map_fn(dst, src, length, colorMap);\n"
      "\treturn;\n"
      "#endif\n"),
     ("Source/engine/render/blit_impl.hpp",
      "inline DVL_NO_INLINE DVL_ATTRIBUTE_HOT void BlitPixelsBlendedWithMap(uint8_t *DVL_RESTRICT dst, const uint8_t *DVL_RESTRICT src, unsigned length, const uint8_t *DVL_RESTRICT colorMap)\n{\n\tDVL_ASSUME(length != 0);\n",
      "inline DVL_NO_INLINE DVL_ATTRIBUTE_HOT void BlitPixelsBlendedWithMap(uint8_t *DVL_RESTRICT dst, const uint8_t *DVL_RESTRICT src, unsigned length, const uint8_t *DVL_RESTRICT colorMap)\n{\n\tDVL_ASSUME(length != 0);\n"
      "#ifdef __amigaos__\n"
-     "\tamiga_blit_blend_map(dst, src, length, colorMap, &paletteTransparencyLookup[0][0]);\n"
+     "\tamiga_blit_blend_map_fn(dst, src, length, colorMap, &paletteTransparencyLookup[0][0]);\n"
      "\treturn;\n"
      "#endif\n"),
     # ---- incremental scene renderer (overlay engine/render/amiga_cells.*,

@@ -151,17 +151,9 @@ static void report(const char *what, unsigned n)
         msdl_logf(SDL_LOG_PRIORITY_ERROR, "blit: %s differs (n %u), %lu bad of %lu calls", what, n, v_bad, v_calls);
 }
 
-void amiga_blit_map(unsigned char *dst, const unsigned char *src, unsigned n, const unsigned char *map)
+static void map_checked(unsigned char *dst, const unsigned char *src, unsigned n, const unsigned char *map)
 {
     unsigned i;
-    if (!verify_on()) {
-        if (use_c) {
-            for (i = 0; i < n; i++) dst[i] = map[src[i]];
-            return;
-        }
-        amiga_blit_map_asm(dst, src, n, map);
-        return;
-    }
     v_calls++;
     amiga_blit_map_asm(dst, src, n, map);
     for (i = 0; i < n; i++) {
@@ -173,16 +165,18 @@ void amiga_blit_map(unsigned char *dst, const unsigned char *src, unsigned n, co
     if ((v_calls & 0xFFFF) == 0) msdl_logf(SDL_LOG_PRIORITY_INFO, "blit: %lu calls checked, %lu bad", v_calls, v_bad);
 }
 
-void amiga_blit_blend_map(unsigned char *dst, const unsigned char *src, unsigned n, const unsigned char *map,
+static void map_c(unsigned char *dst, const unsigned char *src, unsigned n, const unsigned char *map)
+{
+    unsigned i;
+    for (i = 0; i < n; i++) dst[i] = map[src[i]];
+}
+
+static void blend_checked(unsigned char *dst, const unsigned char *src, unsigned n, const unsigned char *map,
                           const unsigned char *pal)
 {
     static unsigned char before[1024];
     unsigned i;
-    if (!verify_on() || n > sizeof(before)) {
-        if (use_c) {
-            for (i = 0; i < n; i++) dst[i] = pal[dst[i] * 256 + map[src[i]]];
-            return;
-        }
+    if (n > sizeof(before)) {
         amiga_blit_blend_map_asm(dst, src, n, map, pal);
         return;
     }
@@ -195,4 +189,48 @@ void amiga_blit_blend_map(unsigned char *dst, const unsigned char *src, unsigned
             break;
         }
     }
+}
+
+static void blend_c(unsigned char *dst, const unsigned char *src, unsigned n, const unsigned char *map,
+                    const unsigned char *pal)
+{
+    unsigned i;
+    for (i = 0; i < n; i++) dst[i] = pal[dst[i] * 256 + map[src[i]]];
+}
+
+/* The game calls through these pointers (blit_impl.hpp): the asm loops
+   directly, chosen once by the first call (ENV:DIABLO_VERIFY_BLIT checks
+   them against C, ENV:DIABLO_BLIT_C uses plain C). */
+static void map_first(unsigned char *dst, const unsigned char *src, unsigned n, const unsigned char *map);
+static void blend_first(unsigned char *dst, const unsigned char *src, unsigned n, const unsigned char *map,
+                        const unsigned char *pal);
+void (*amiga_blit_map_fn)(unsigned char *, const unsigned char *, unsigned, const unsigned char *) = map_first;
+void (*amiga_blit_blend_map_fn)(unsigned char *, const unsigned char *, unsigned, const unsigned char *,
+                                const unsigned char *) = blend_first;
+
+static void choose(void)
+{
+    if (verify_on()) {
+        amiga_blit_map_fn = map_checked;
+        amiga_blit_blend_map_fn = blend_checked;
+    } else if (use_c) {
+        amiga_blit_map_fn = map_c;
+        amiga_blit_blend_map_fn = blend_c;
+    } else {
+        amiga_blit_map_fn = amiga_blit_map_asm;
+        amiga_blit_blend_map_fn = amiga_blit_blend_map_asm;
+    }
+}
+
+static void map_first(unsigned char *dst, const unsigned char *src, unsigned n, const unsigned char *map)
+{
+    choose();
+    amiga_blit_map_fn(dst, src, n, map);
+}
+
+static void blend_first(unsigned char *dst, const unsigned char *src, unsigned n, const unsigned char *map,
+                        const unsigned char *pal)
+{
+    choose();
+    amiga_blit_blend_map_fn(dst, src, n, map, pal);
 }
