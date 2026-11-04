@@ -326,3 +326,22 @@ sam, gdy plik się skończy i pierścień opróżni (`amiga_snd_stream_end`). Od
   wchodzi kamera (przy przesunięciu o 1–2 px), plus pełne przerysowanie po każdym przeskoku światła.
 - Kontrola (`run-vall`, marsz, On): 1 klatka z 3 różnymi pikselami przy dolnej krawędzi widoku (229,337) –
   do zbadania razem z szerokim pasem przy krawędzi. Przy Off: bez zmian (0 różnic).
+
+### Reguła krawędzi przy ruchu kamery (4.11.2026, Amiga 2)
+
+Było: przy ruchu kamery wszystkie komórki przy krawędziach widoku w kierunku ruchu brudne (w izometrii ruch
+jest po skosie, więc 4 krawędzie: ~25–28% widoku co klatkę). Jest: przebieg zapisu notuje komórki, których
+dotyka prymityw przycinany przez grę niedokładnie przy krawędzi widoku (`RecordEdge`: ściany z maską
+lewą/prawą przycięte którąkolwiek krawędzią, płytki przycięte w rogu); przy ruchu kamery brudne są tylko
+komórki z takim prymitywem w tej lub poprzedniej klatce. Kontrola (`run-vall`, marsz w lochu ze
+skokowym światłem i w mieście, ~70 klatek z ruchem kamery każda): 0 różnic.
+
+| Scena | brudne komórki | kl./s |
+|---|---|---|
+| Tristram, marsz | 27% → 7–9% | 49–55 → 49–53 |
+| loch, marsz, Light Steps On | 22–46% → 20–44% | 20–29 → 21–29 |
+
+Kl./s prawie bez zmian: w marszu dominuje stały koszt trybu komórkowego – przebieg zapisu 6–7 ms (wszystkie
+płytki widoku co klatkę), kopia sceny do bufora gry 3–6 ms, wysłanie na kartę 2–5 ms, logika ~4 ms,
+dźwięk ~2 ms (~20 ms zanim cokolwiek się narysuje); w lochu ze skokami dodatkowo 2 pełne klatki na każdy
+przeskok światła (klatka bezpośrednia, potem pełna w komórkach).

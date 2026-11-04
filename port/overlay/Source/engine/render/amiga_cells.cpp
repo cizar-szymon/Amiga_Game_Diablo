@@ -42,6 +42,8 @@ constexpr uint32_t HashInit = 0x811C9DC5U;
 struct Grid {
 	int bx = 0, by = 0; // world cell of grid (0, 0)
 	uint32_t h[GridH][GridW];
+	/** cells touched by a primitive the game clips inexactly at the view edge */
+	uint8_t e[GridH][GridW];
 };
 
 Grid grids[2];
@@ -290,17 +292,20 @@ int BuildDirtyRects(int &visibleCells)
 					visibleCells++;
 					dirty = true;
 					// The game's clipping at the view edge is not exact for every
-					// primitive: when the camera moves, the clip line moves, so the
-					// cells along the edges in that direction are drawn again.
-					const unsigned edges = EdgeBits(wcx, wcy, camX, camY);
-					const unsigned moved = (camX != prevCamX ? 5U : 0U) | (camY != prevCamY ? 10U : 0U);
+					// primitive: when the camera moves, the clip line moves.
+					// Only some primitives are inexact there (see-through walls
+					// with a left / right mask, tiles cut at a corner -
+					// RecordEdge): the cells they touch now or touched last frame
+					// are drawn again; the other edge cells are reused.
+					const bool moved = camX != prevCamX || camY != prevCamY;
 					// reusable when the part visible now was visible last frame
 					// (moved by the camera): also cells cut by the view edge
 					const int px0 = cr.x + camX - prevCamX, py0 = cr.y + camY - prevCamY;
 					const bool wasVisible = px0 >= 0 && py0 >= 0 && px0 + cr.w <= viewW && py0 + cr.h <= viewH;
-					if (prevValid && wasVisible && (edges & moved) == 0) {
+					if (prevValid && wasVisible) {
 						const int px = wcx - p.bx, py = wcy - p.by;
-						if (px >= 0 && py >= 0 && px < GridW && py < GridH && p.h[py][px] == g.h[gy][gx])
+						if (px >= 0 && py >= 0 && px < GridW && py < GridH && p.h[py][px] == g.h[gy][gx]
+						    && !(moved && (g.e[gy][gx] != 0 || p.e[py][px] != 0)))
 							dirty = false;
 					}
 				}
@@ -477,6 +482,25 @@ void RecordPrimitive(int x, int y, int w, int h, uint32_t k1, uint32_t k2, uint3
 			g.h[cy][cx] = Mix(g.h[cy][cx], key);
 }
 
+void RecordEdge(int x, int y, int w, int h, bool masked)
+{
+	const bool cutH = x < 0 || x + w > viewW;
+	const bool cutV = y < 0 || y + h > viewH;
+	if (!((masked && (cutH || cutV)) || (cutH && cutV)))
+		return;
+	Grid &g = grids[cur];
+	const int wx = x + camX, wy = y + camY;
+	int cx0 = CellOf(wx) - g.bx, cy0 = CellOf(wy) - g.by;
+	int cx1 = CellOf(wx + w - 1) - g.bx, cy1 = CellOf(wy + h - 1) - g.by;
+	if (cx0 < 0) cx0 = 0;
+	if (cy0 < 0) cy0 = 0;
+	if (cx1 >= GridW) cx1 = GridW - 1;
+	if (cy1 >= GridH) cy1 = GridH - 1;
+	for (int cy = cy0; cy <= cy1; cy++)
+		for (int cx = cx0; cx <= cx1; cx++)
+			g.e[cy][cx] = 1;
+}
+
 void CheckTopGuard(const char *path, int ax, int ay, int w, int h, uint32_t k1, uint32_t k2, const DirtyRect &r)
 {
 	static int reports = 0;
@@ -621,6 +645,7 @@ void DrawScene(const Surface &out, int firstTileX, int firstTileY, int offsetX, 
 	for (int y = 0; y < GridH; y++)
 		for (int x = 0; x < GridW; x++)
 			g.h[y][x] = HashInit;
+	std::memset(g.e, 0, sizeof(g.e));
 	sceneOX = originX;
 	sceneOY = originY;
 	curTile = -1;
