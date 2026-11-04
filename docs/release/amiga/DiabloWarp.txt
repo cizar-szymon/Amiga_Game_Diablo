@@ -1,7 +1,7 @@
 DiabloWarp - Diablo na Amigę z kartą Warp
 =========================================
 
-Wersja 0.46 (beta), 4 listopada 2026
+Wersja 0.47 (beta), 4 listopada 2026
 
 Diablo (Blizzard, 1996) na Amidze: DevilutionX, otwarty silnik Diablo,
 przeniesiony na AmigaOS 3 i dostrojony do kart przyspieszających Warp.
@@ -28,7 +28,7 @@ Instalacja
 ----------
 
 1. Rozpakuj archiwum, np.:
-      UnZip DiabloWarp-0.46.zip -d Work:Games
+      UnZip DiabloWarp-0.47.zip -d Work:Games
 2. Skopiuj diabdat.mpq z płyty Diablo albo wersji GOG do szuflady
    DiabloWarp/data. Danych gry nie ma w paczce.
 3. Uruchom grę ikoną devilutionx.
@@ -109,6 +109,9 @@ Naciśnij F10 w grze: gra się zapisze, a w RAM:Diablo-report powstanie raport
 (zapis, diablo.ini i krótki opis z numerem wersji). Wyślij te pliki z opisem,
 co się stało, i numerem wersji (w lewym dolnym rogu menu głównego albo
 "Version devilutionx" w Shellu).
+
+Jeśli gra padnie (okno „Software Failure”), zapisuje przedtem
+RAM:Diablo-crash.txt (rejestry i stos): dołącz go do zgłoszenia.
 
 
 Czego nie ma w tej wersji

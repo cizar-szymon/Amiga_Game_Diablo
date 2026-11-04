@@ -14,6 +14,20 @@ import shutil
 import sys
 
 CHANGES = [
+    # An event with no handler: when the game starts, the loading screen
+    # restores the handler it found (none yet) and events can still be
+    # dispatched before GameEventHandler is set; upstream only asserts, a
+    # release build jumps to address 0 (crash with F10 / keys pressed at the
+    # end of loading, 4.11.2026). Here the event is dropped and logged.
+    ("Source/engine/events.cpp",
+     "\tassert(CurrentEventHandler != nullptr);\n\n\tCurrentEventHandler(event, modState);\n",
+     "#ifdef __amigaos__\n"
+     "\tif (CurrentEventHandler == nullptr) {\n"
+     "\t\tLogError(\"HandleMessage: no event handler, event {:#x} dropped\", static_cast<uint32_t>(event.type));\n"
+     "\t\treturn;\n"
+     "\t}\n"
+     "#endif\n"
+     "\tassert(CurrentEventHandler != nullptr);\n\n\tCurrentEventHandler(event, modState);\n"),
     # The native SDL2 subset (port/sdl) instead of SDL2 from source.
     ("CMake/platforms/amiga.cmake",
      "set(DEVILUTIONX_SYSTEM_SDL2 OFF)\n",
@@ -703,7 +717,7 @@ CHANGES = [
      "\tif (gbIsMultiplayer || !gbRunGame || MyPlayer == nullptr)\n"
      "\t\treturn;\n"
      "\tgamemenu_save_game(false);\n"
-     "\tCreateDir(\"RAM:Diablo-report\");\n"
+     "\tif (!DirectoryExists(\"RAM:Diablo-report\")) CreateDir(\"RAM:Diablo-report\");\n"
      "\tconst auto copy = [](const std::string &from, const char *to) {\n"
      "\t\tFILE *in = std::fopen(from.c_str(), \"rb\");\n"
      "\t\tif (in == nullptr) return false;\n"

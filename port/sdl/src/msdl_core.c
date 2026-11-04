@@ -26,6 +26,84 @@ unsigned long __stack = 1000000;
 extern void __stkinit(void);
 void (*const amiga_stackSwap)(void) = __stkinit;
 
+
+/* ---- crash report: a CPU exception of the game's task (tc_TrapCode, as
+   AmiXcom's amiga_trap.c) is written to RAM:Diablo-crash.txt - registers,
+   the user stack (its return addresses are the backtrace: nm on
+   build/amiga/devilutionx.map via tools/map2syms.py, minus the textbase
+   line) - then the system's Software Failure requester as usual. ---- */
+volatile unsigned long msdl_trap_info[4];   /* trap number, SR, PC, format */
+volatile unsigned long msdl_trap_regs[16];  /* d0-d7, a0-a6, usp */
+void msdl_trap_land(void);
+static APTR msdl_old_trapcode;
+
+__asm__(
+"\t.text\n"
+"\t.align 2\n"
+"\t.globl _msdl_trap_handler\n"
+"_msdl_trap_handler:\n"
+"\tmovem.l d0-d7/a0-a6,_msdl_trap_regs\n"
+"\tmove.l  usp,a0\n"
+"\tmove.l  a0,_msdl_trap_regs+60\n"
+"\tmove.l  (sp),_msdl_trap_info\n"        /* trap number */
+"\tclr.l   d0\n"
+"\tmove.w  4(sp),d0\n"
+"\tmove.l  d0,_msdl_trap_info+4\n"        /* SR */
+"\tmove.l  6(sp),_msdl_trap_info+8\n"     /* PC */
+"\tclr.l   d0\n"
+"\tmove.w  10(sp),d0\n"
+"\tmove.l  d0,_msdl_trap_info+12\n"       /* format/vector */
+"\tmovem.l _msdl_trap_regs,d0-d7/a0-a6\n"
+"\tmove.l  #_msdl_trap_land,6(sp)\n"      /* rte lands in msdl_trap_land */
+"\tclr.w   4(sp)\n"                       /* user mode, interrupts on */
+"\taddq.l  #4,sp\n"
+"\trte\n"
+);
+extern void msdl_trap_handler(void);
+
+void msdl_trap_land(void)
+{
+    static int once;
+    const unsigned long usp = msdl_trap_regs[15];
+    BPTR f;
+    while (SysBase->TDNestCnt >= 0) Permit();
+    while (SysBase->IDNestCnt >= 0) Enable();
+    if (once++) for (;;) Wait(0);
+    f = Open((CONST_STRPTR) "RAM:Diablo-crash.txt", MODE_NEWFILE);
+    if (f) {
+        char line[160];
+        int i;
+        snprintf(line, sizeof(line), "trap %lu PC %08lx SR %04lx format %04lx textbase msdl_trap_land=%08lx\n",
+                 msdl_trap_info[0], msdl_trap_info[2], msdl_trap_info[1], msdl_trap_info[3],
+                 (unsigned long)(void *)msdl_trap_land);
+        FPuts(f, (CONST_STRPTR)line);
+        for (i = 0; i < 16; i++) {
+            snprintf(line, sizeof(line), "%c%d %08lx%s", i < 8 ? 'd' : 'a', i & 7, msdl_trap_regs[i],
+                     (i & 7) == 7 ? "\n" : " ");
+            FPuts(f, (CONST_STRPTR)line);
+        }
+        if ((usp & 1) == 0 && usp >= 0x1000UL) {
+            const unsigned long *st = (const unsigned long *)usp;
+            for (i = 0; i < 1024; i++) {
+                snprintf(line, sizeof(line), "%s%08lx", (i & 7) == 0 ? (i ? "\n" : "") : " ", st[i]);
+                FPuts(f, (CONST_STRPTR)line);
+            }
+            FPuts(f, (CONST_STRPTR) "\n");
+        }
+        Close(f);
+    }
+    /* then the system's own Software Failure requester, as without us */
+    FindTask(NULL)->tc_TrapCode = msdl_old_trapcode;
+    for (;;) __asm__ volatile("illegal");
+}
+
+static void msdl_trap_install(void)
+{
+    struct Task *t = FindTask(NULL);
+    msdl_old_trapcode = t->tc_TrapCode;
+    t->tc_TrapCode = (APTR)msdl_trap_handler;
+}
+
 static char error_buf[256];
 
 /* libnix's I/O calls __chkabort(), which on Ctrl-C calls exit() from
@@ -142,6 +220,11 @@ static Uint32 init_flags;
 
 int SDL_Init(Uint32 flags)
 {
+    static int trap;
+    if (!trap) {
+        trap = 1;
+        msdl_trap_install();
+    }
     init_flags |= flags;
     return 0;
 }

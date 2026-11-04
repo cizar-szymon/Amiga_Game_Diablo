@@ -7,7 +7,7 @@ numerem wersji (w lewym dolnym rogu menu głównego albo "Version devilutionx"
 w Shellu).
 
 
-0.46 (beta) - 4 listopada 2026
+0.47 (beta) - 4 listopada 2026
 ------------------------------
 
 Pierwsze publiczne wydanie.
@@ -23,4 +23,4 @@ Pierwsze publiczne wydanie.
 - opcja „Light Steps” na szybszy marsz w lochu
 - ikona z Tool Types (DATADIR, SAVEDIR, LANGUAGE, SHOWFPS, SKIPINTRO,
   NOSOUND), stos 1000000 bajtów
-- raport o błędzie pod F10
+- raport o błędzie pod F10, opis awarii w RAM:Diablo-crash.txt

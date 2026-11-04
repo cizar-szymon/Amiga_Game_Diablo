@@ -12,8 +12,8 @@
 | 5. Pomiar i optymalizacja | ✅ 4.11: renderer komórkowy, pętle asm, VRAM/blitter, FindPath; Amiga 2 100 MHz: Tristram 91 / marsz 47–66, loch walka 46, marsz 17–26 kl./s (stary port 11–17) |
 | 5a. Dźwięk: efekty, muzyka, mowa (Paula, ~1–3,5% CPU), polskie głosy (`pl.mpq` przerobiony na WAV) | ✅ 4.11 |
 | 5b. Ikona z Tool Types, stos 1 000 000 (także z ikony), języki pl/en/de, filmy 2× | ✅ 4.11 |
-| 6. Standard klawiszy (P pauza, Esc), F10 raport do `RAM:Diablo-report`, numer wersji 0.46 (`port/VERSION`, menu, `$VER`) | ✅ (menu i F10 do sprawdzenia na Amidze) |
-| 7. Wydanie 0.46: opisy PL/EN, historia wydań, `tools/make_release.sh` → `releases/amiga`, ZIP (sprawdzony `UnZip` na Amidze 2), pełna paczka `private/DiabloWarp-0.46-full.zip` (618 MB: + `diabdat.mpq` z CD i przerobiony `pl.mpq` w `data/`), README, LICENSE | ✅ lokalnie; GitHub `cizar-szymon/Amiga_Game_Diablo` czeka na zgodę |
+| 6. Standard klawiszy (P pauza, Esc), F10 raport do `RAM:Diablo-report`, numer wersji (`port/VERSION`, menu, `$VER`), opis awarii `RAM:Diablo-crash.txt` | ✅ 4.11 (Amiga 2) |
+| 7. Wydanie 0.47: opisy PL/EN, historia wydań, `tools/make_release.sh` → `releases/amiga`, ZIP (sprawdzony `UnZip` na Amidze 2), pełna paczka `private/DiabloWarp-0.47-full.zip` (618 MB: + `diabdat.mpq` z CD i przerobiony `pl.mpq` w `data/`), README, LICENSE | ✅ lokalnie; GitHub `cizar-szymon/Amiga_Game_Diablo` czeka na zgodę |
 
 ## Decyzje (3.11.2026, zaakceptowane przez użytkownika)
 
@@ -422,3 +422,23 @@ zapisów jest na liście katalogów MPQ). Niemieckiego `de.mpq` w oficjalnych za
 Rozmowy (strumieniowane) nie grały od kroku 3 dźwięku: `SoundSample::IsLoaded` dla strumienia zwracało
 false (tylko ścieżka, bez próbek), a `effects.cpp` gra tylko wczytane. Poprawione; polskie rozmowy
 potwierdzone odsłuchem przez użytkownika (4.11.2026).
+
+
+## Awaria przy końcu wczytywania (4.11.2026, poprawione w 0.47)
+
+Objaw: „Software Failure”, Illegal instruction pod PC $5A, A0 = 0 (skok pod adres 0). Zdarzało się,
+gdy klawisz (w teście F10) był puszczony dokładnie w chwili końca wczytywania poziomu przy starcie gry.
+
+Przyczyna (upstream, tylko przy `LOAD_ON_MAIN_THREAD`): `ShowProgress` zapamiętuje poprzednią obsługę
+zdarzeń, a przy pierwszym wczytaniu jest nią `nullptr` (`GameEventHandler` ustawia dopiero
+`RunGameLoop` po `StartGame`). Po `WM_DONE` obsługa wraca do `nullptr`, a zdarzenie, które jeszcze
+czeka w kolejce (tu `SDL_KEYUP` 0x301), trafia do `HandleMessage`, który ma tylko `assert`.
+Poprawka: na Amidze `HandleMessage` bez obsługi pomija zdarzenie i zapisuje to w logu.
+
+Znalezione dzięki nowej obsłudze wyjątków procesora (`port/sdl/src/msdl_core.c`, jak `amiga_trap.c`
+z AmiXcom): przy awarii gra zapisuje `RAM:Diablo-crash.txt` (rejestry, 4 KB stosu, adres
+`msdl_trap_land`), a potem pokazuje zwykłe okno systemu. Mapowanie stosu na funkcje:
+`python tools/map2syms.py build/amiga/devilutionx.map build/amiga/devilutionx.syms`,
+`python tools/crashmap.py crash.txt build/amiga/devilutionx.syms` (funkcje lokalne LTO nie są
+w mapie – wtedy `objdump -d` w okolicy adresu). Test: polecenie `crash` w `RAM:diablo-cmd`.
+Przy okazji F10 nie zgłasza błędu, gdy `RAM:Diablo-report` już istnieje.

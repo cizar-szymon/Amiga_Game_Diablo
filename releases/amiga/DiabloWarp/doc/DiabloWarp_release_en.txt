@@ -7,7 +7,7 @@ description of what happened and the version number (bottom left of the main
 menu, or "Version devilutionx" in the Shell).
 
 
-0.46 (beta) - 4 November 2026
+0.47 (beta) - 4 November 2026
 -----------------------------
 
 The first public release.
@@ -23,4 +23,4 @@ The first public release.
 - "Light Steps" option for faster walking in the dungeon
 - Workbench icon with Tool Types (DATADIR, SAVEDIR, LANGUAGE, SHOWFPS,
   SKIPINTRO, NOSOUND), stack of 1000000 bytes
-- Bug report on F10
+- Bug report on F10, crash details in RAM:Diablo-crash.txt

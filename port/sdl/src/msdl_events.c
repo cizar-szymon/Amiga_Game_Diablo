@@ -384,6 +384,10 @@ static void script_step(void)
             e.button.y = mouse_y;
             mouse_buttons &= ~SDL_BUTTON(SDL_BUTTON_LEFT);
             push(&e);
+        } else if (strcmp(l->op, "crash") == 0) {
+            /* test of the crash report (msdl_core.c): a call to address 0 */
+            void (*volatile nowhere)(void) = 0;
+            nowhere();
         } else if (strcmp(l->op, "profon") == 0) {
             msdl_prof_on();
         } else if (strcmp(l->op, "profoff") == 0) {
