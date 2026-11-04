@@ -25,6 +25,7 @@ extern "C" unsigned long amiga_eclock_per_ms(void);
 extern "C" void msdl_view_scene(int dx, int dy, int vw, int vh, const int *rects, int n, int full);
 extern "C" void msdl_view_overlay(int x, int y, int w, int h);
 extern "C" void msdl_view_overlay_all(void);
+extern "C" int msdl_view_take_damage(int *out4, int max);
 
 namespace devilution::amiga_cells {
 
@@ -56,11 +57,12 @@ DirtyRect rects[GridW * GridH];
 int numRects = 0;
 DirtyRect fullRect;
 
-int envFull = -1, envVerify = -1, envStats = -1;
+int envFull = -1, envVerify = -1, envStats = -1, envNoGuard = -1;
 
 // statistics
 unsigned long stFrames, stFull, stDirty, stCells, stRects, stRecord, stRender, stCopy, stShift, stT0;
 unsigned long vFrames, vBad;
+extern unsigned long stRecentre;
 unsigned long guardCount;
 
 int FloorDiv(int a, int b)
@@ -124,31 +126,38 @@ SDL_Surface *EnsureGuarded(Guarded &g, int w, int h)
 	return g.s;
 }
 
-/** Margin bytes changed since the last check (and restores them). */
+/** Margin bytes changed since the last check (and restores them). Reads
+    only the margins: whole rows above and below, Margin bytes left and right. */
+int CheckGuardRange(uint8_t *p, int n)
+{
+	int bad = 0;
+	for (int i = 0; i < n; i++) {
+		if (p[i] != GuardByte) {
+			p[i] = GuardByte;
+			bad++;
+		}
+	}
+	return bad;
+}
+
 int CheckGuard(Guarded &g, const char *what)
 {
 	if (g.raw == nullptr)
 		return 0;
-	int bad = 0, side = 0;
-	const int rows = g.h + 2 * Margin;
-	for (int y = 0; y < rows; y++) {
+	int above = 0, below = 0, left = 0, right = 0;
+	for (int y = 0; y < Margin; y++)
+		above += CheckGuardRange(g.raw + y * g.pitch, g.pitch);
+	for (int y = Margin; y < Margin + g.h; y++) {
 		uint8_t *row = g.raw + y * g.pitch;
-		const bool inPicture = y >= Margin && y < Margin + g.h;
-		for (int x = 0; x < g.pitch; x++) {
-			if (inPicture && x >= Margin && x < Margin + g.w)
-				continue;
-			if (row[x] != GuardByte) {
-				if (bad == 0)
-					side = y < Margin ? 1 : (y >= Margin + g.h ? 2 : (x < Margin ? 3 : 4));
-				bad++;
-				row[x] = GuardByte;
-			}
-		}
+		left += CheckGuardRange(row, Margin);
+		right += CheckGuardRange(row + Margin + g.w, g.pitch - Margin - g.w);
 	}
-	if (bad != 0) {
-		static const char *const sides[] = { "", "above", "below", "left of", "right of" };
-		SDL_Log("cells: GUARD %s: %d bytes written %s the picture", what, bad, sides[side]);
-	}
+	for (int y = Margin + g.h; y < g.h + 2 * Margin; y++)
+		below += CheckGuardRange(g.raw + y * g.pitch, g.pitch);
+	const int bad = above + below + left + right;
+	if (bad != 0)
+		SDL_Log("cells: GUARD %s: bytes written outside the picture: %d above, %d below, %d left, %d right", what, above, below,
+		    left, right);
 	return bad;
 }
 
@@ -163,21 +172,59 @@ void ClearRect(SDL_Surface *s, const DirtyRect &r)
 		std::memset(static_cast<uint8_t *>(s->pixels) + y * s->pitch + r.x, 0, r.w);
 }
 
-/** new(x, y) = old(x + dx, y + dy) */
-void ShiftScene(int dx, int dy)
+/*
+ * The scene lives in a window on a larger canvas (stage 2d): a camera move
+ * moves the window, the pixels stay where they are. Only when the window
+ * reaches the canvas edge is the view copied back to the middle.
+ */
+constexpr int CanvasPad = 256;
+int originX = CanvasPad, originY = CanvasPad;
+unsigned long stRecentre;
+
+inline uint8_t *ScenePtr(int x, int y)
 {
+	return static_cast<uint8_t *>(scene->pixels) + (y + originY) * scene->pitch + x + originX;
+}
+
+Surface SceneSurface()
+{
+	return Surface(scene, SDL_Rect { originX, originY, viewW, viewH });
+}
+
+void ClearScene(const DirtyRect &r)
+{
+	for (int y = r.y; y < r.y + r.h; y++)
+		std::memset(ScenePtr(r.x, y), 0, r.w);
+}
+
+/** new(x, y) = old(x + dx, y + dy): the window moves by (dx, dy). */
+void MoveOrigin(int dx, int dy)
+{
+	const int nx = originX + dx, ny = originY + dy;
+	if (nx >= 0 && ny >= 0 && nx <= 2 * CanvasPad && ny <= 2 * CanvasPad) {
+		originX = nx;
+		originY = ny;
+		return;
+	}
+	// back to the middle: the part of the old view still visible
+	const int w = viewW - (dx < 0 ? -dx : dx);
+	const int h = viewH - (dy < 0 ? -dy : dy);
 	uint8_t *p = static_cast<uint8_t *>(scene->pixels);
 	const int pitch = scene->pitch;
-	const int w = viewW - (dx < 0 ? -dx : dx);
-	const int dstX = dx < 0 ? -dx : 0;
-	const int srcX = dx > 0 ? dx : 0;
-	if (dy >= 0) {
-		for (int y = 0; y + dy < viewH; y++)
-			std::memmove(p + y * pitch + dstX, p + (y + dy) * pitch + srcX, w);
-	} else {
-		for (int y = viewH - 1; y + dy >= 0; y--)
-			std::memmove(p + y * pitch + dstX, p + (y + dy) * pitch + srcX, w);
+	const int srcX = originX + (dx > 0 ? dx : 0), srcY = originY + (dy > 0 ? dy : 0);
+	const int dstX = CanvasPad + (dx < 0 ? -dx : 0), dstY = CanvasPad + (dy < 0 ? -dy : 0);
+	if (w > 0 && h > 0) {
+		if (dstY <= srcY) {
+			for (int y = 0; y < h; y++)
+				std::memmove(p + (dstY + y) * pitch + dstX, p + (srcY + y) * pitch + srcX, w);
+		} else {
+			for (int y = h - 1; y >= 0; y--)
+				std::memmove(p + (dstY + y) * pitch + dstX, p + (srcY + y) * pitch + srcX, w);
+		}
 	}
+	originX = CanvasPad;
+	originY = CanvasPad;
+	stRecentre++;
 }
 
 /** Screen rectangle of world cell (wcx, wcy), clipped to the view; false when outside. */
@@ -270,6 +317,21 @@ int BuildDirtyRects(int &visibleCells)
 	return dirtyCount;
 }
 
+bool gameCopyValid = false;
+unsigned long stPartial;
+
+/** Rectangle x, y, w, h of the scene into the game's buffer (clipped to the view). */
+void CopyToGame(const Surface &out, int x, int y, int w, int h)
+{
+	int x1 = x + w, y1 = y + h;
+	if (x < 0) x = 0;
+	if (y < 0) y = 0;
+	if (x1 > viewW) x1 = viewW;
+	if (y1 > viewH) y1 = viewH;
+	for (int yy = y; yy < y1; yy++)
+		std::memcpy(out.at(x, yy), ScenePtr(x, yy), x1 - x);
+}
+
 void Verify(const std::function<void(const Surface &)> &drawScene)
 {
 	verifyBuf = EnsureSurface(verifyG, verifyBuf, viewW, viewH);
@@ -285,7 +347,7 @@ void Verify(const std::function<void(const Surface &)> &drawScene)
 	vFrames++;
 	int bad = 0, fx = -1, fy = -1;
 	for (int y = 0; y < viewH; y++) {
-		const uint8_t *a = static_cast<const uint8_t *>(scene->pixels) + y * scene->pitch;
+		const uint8_t *a = ScenePtr(0, y);
 		const uint8_t *b = static_cast<const uint8_t *>(verifyBuf->pixels) + y * verifyBuf->pitch;
 		if (std::memcmp(a, b, viewW) == 0)
 			continue;
@@ -311,7 +373,7 @@ void Verify(const std::function<void(const Surface &)> &drawScene)
 					static_cast<uint8_t>(viewH), static_cast<uint8_t>(numRects >> 8), static_cast<uint8_t>(numRects) };
 				std::fwrite(hdr, 1, 6, f);
 				for (int y = 0; y < viewH; y++)
-					std::fwrite(static_cast<const uint8_t *>(scene->pixels) + y * scene->pitch, 1, viewW, f);
+					std::fwrite(ScenePtr(0, y), 1, viewW, f);
 				for (int y = 0; y < viewH; y++)
 					std::fwrite(static_cast<const uint8_t *>(verifyBuf->pixels) + y * verifyBuf->pitch, 1, viewW, f);
 				for (int i = 0; i < numRects; i++) {
@@ -329,7 +391,9 @@ void Verify(const std::function<void(const Surface &)> &drawScene)
 			    vFrames, bad, fx, fy, FloorDiv(fx + camX, Cell), FloorDiv(fy + camY, Cell), numRects, camX, camY,
 			    camX - prevCamX, camY - prevCamY);
 		// show the truth from now on, so one error is reported once
-		std::memcpy(scene->pixels, verifyBuf->pixels, static_cast<size_t>(scene->pitch) * viewH);
+		for (int y = 0; y < viewH; y++)
+			std::memcpy(ScenePtr(0, y), static_cast<const uint8_t *>(verifyBuf->pixels) + y * verifyBuf->pitch, viewW);
+		gameCopyValid = false;
 	}
 	if ((vFrames % 500) == 0)
 		SDL_Log("cells: verify %lu frames, %lu with differences", vFrames, vBad);
@@ -343,11 +407,11 @@ void Stats(unsigned long now)
 	if (now - stT0 < 5000 * perMs || stFrames == 0)
 		return;
 	const unsigned long f = stFrames;
-	SDL_Log("cells: %lu frames, %lu full, dirty %lu%%, %lu rects/frame; ms/frame record %lu.%lu shift %lu.%lu render %lu.%lu copy %lu.%lu",
-	    f, stFull, stCells != 0 ? stDirty * 100 / stCells : 0, stRects / f,
+	SDL_Log("cells: %lu frames, %lu recentred, %lu full, %lu partial copies, dirty %lu%%, %lu rects/frame; ms/frame record %lu.%lu shift %lu.%lu render %lu.%lu copy %lu.%lu",
+	    f, stRecentre, stFull, stPartial, stCells != 0 ? stDirty * 100 / stCells : 0, stRects / f,
 	    stRecord / perMs / f, (stRecord * 10 / perMs / f) % 10, stShift / perMs / f, (stShift * 10 / perMs / f) % 10,
 	    stRender / perMs / f, (stRender * 10 / perMs / f) % 10, stCopy / perMs / f, (stCopy * 10 / perMs / f) % 10);
-	stFrames = stFull = stDirty = stCells = stRects = stRecord = stRender = stCopy = stShift = 0;
+	stFrames = stFull = stDirty = stCells = stRects = stRecord = stRender = stCopy = stShift = stPartial = stRecentre = 0;
 	stT0 = now;
 }
 
@@ -432,14 +496,14 @@ void DrawScene(const Surface &out, int firstTileX, int firstTileY, int offsetX, 
 
 	viewW = out.w();
 	viewH = out.h();
-	scene = EnsureSurface(sceneG, scene, viewW, viewH);
+	scene = EnsureSurface(sceneG, scene, viewW + 2 * CanvasPad, viewH + 2 * CanvasPad);
 	if (scene == nullptr || viewW > GridW * Cell - Cell || viewH > GridH * Cell - Cell) {
 		drawScene(out);
 		msdl_view_scene(0, 0, viewW, viewH, nullptr, 0, 1);
 		overlayTrack = true;
 		return;
 	}
-	if (scene->w != viewW || levelKey != prevLevelKey)
+	if (scene->w != viewW + 2 * CanvasPad || levelKey != prevLevelKey)
 		prevValid = false;
 	prevLevelKey = levelKey;
 
@@ -457,8 +521,10 @@ void DrawScene(const Surface &out, int firstTileX, int firstTileY, int offsetX, 
 	for (int y = 0; y < GridH; y++)
 		for (int x = 0; x < GridW; x++)
 			g.h[y][x] = HashInit;
+	sceneOX = originX;
+	sceneOY = originY;
 	mode = Mode::Record;
-	drawScene(Surface(scene));
+	drawScene(SceneSurface());
 	mode = Mode::Off;
 	t1 = stats ? amiga_eclock() : 0;
 
@@ -471,27 +537,35 @@ void DrawScene(const Surface &out, int firstTileX, int firstTileY, int offsetX, 
 	bool full = forceFull || Env(envFull, "DIABLO_FULL") || !prevValid || dirty * 10 > visible * 6;
 
 	// 3. shift and draw
-	if (!full && (dx != 0 || dy != 0))
-		ShiftScene(dx, dy);
+	if (full) {
+		originX = CanvasPad;
+		originY = CanvasPad;
+	} else if (dx != 0 || dy != 0) {
+		MoveOrigin(dx, dy);
+	}
+	sceneOX = originX;
+	sceneOY = originY;
 	t2 = stats ? amiga_eclock() : 0;
 	suppressSideEffects = true;
 	if (full) {
 		fullRect = { 0, 0, viewW, viewH };
-		ClearRect(scene, fullRect);
-		drawScene(Surface(scene));
+		ClearScene(fullRect);
+		drawScene(SceneSurface());
 		dirty = visible;
 	} else if (numRects > 0) {
 		for (int i = 0; i < numRects; i++)
-			ClearRect(scene, rects[i]);
+			ClearScene(rects[i]);
 		traceGuard = Env(envVerify, "DIABLO_VERIFY_RENDER");
 		mode = Mode::Render;
-		drawScene(Surface(scene));
+		drawScene(SceneSurface());
 		mode = Mode::Off;
 		traceGuard = false;
 	}
 	suppressSideEffects = false;
 	t3 = stats ? amiga_eclock() : 0;
-	if (Env(envVerify, "DIABLO_VERIFY_RENDER") || (++guardCount & 63) == 0) {
+	// margins: they take stray writes anyway; checked only when testing
+	// (a periodic check in normal play caused 70 ms hitches)
+	if (Env(envVerify, "DIABLO_VERIFY_RENDER")) {
 		CheckGuard(sceneG, full ? "full draw" : "incremental draw");
 		CheckGuard(scratchG, "tile scratch");
 	}
@@ -499,9 +573,39 @@ void DrawScene(const Surface &out, int firstTileX, int firstTileY, int offsetX, 
 	if (Env(envVerify, "DIABLO_VERIFY_RENDER"))
 		Verify(drawScene);
 
-	// 4. the clean scene into the game's buffer (overlays are drawn on top of it)
-	for (int y = 0; y < viewH; y++)
-		std::memcpy(out.at(0, y), static_cast<const uint8_t *>(scene->pixels) + y * scene->pitch, viewW);
+	// 4. the clean scene into the game's buffer (overlays are drawn on top of
+	// it). With the camera still, the game's buffer differs from the new
+	// scene only in the dirty rectangles and where something was drawn over
+	// the scene since the last copy (stage 2c): only those are copied.
+	{
+		static int d4[512 * 4];
+		static const uint8_t *lastGamePixels = nullptr;
+		const int nd = msdl_view_take_damage(d4, 512);
+		const uint8_t *gp = out.at(0, 0);
+		const bool partial = !full && dx == 0 && dy == 0 && nd >= 0 && gp == lastGamePixels && gameCopyValid;
+		lastGamePixels = gp;
+		if (partial) {
+			for (int i = 0; i < numRects; i++)
+				CopyToGame(out, rects[i].x, rects[i].y, rects[i].w, rects[i].h);
+			for (int i = 0; i < nd; i++)
+				CopyToGame(out, d4[i * 4], d4[i * 4 + 1], d4[i * 4 + 2], d4[i * 4 + 3]);
+			stPartial++;
+		} else {
+			for (int y = 0; y < viewH; y++)
+				std::memcpy(out.at(0, y), ScenePtr(0, y), viewW);
+		}
+		gameCopyValid = true;
+		if (Env(envVerify, "DIABLO_VERIFY_RENDER")) {
+			for (int y = 0; y < viewH; y++) {
+				if (std::memcmp(out.at(0, y), ScenePtr(0, y), viewW) != 0) {
+					SDL_Log("cells: GAME COPY differs from the scene at row %d (%s copy)", y, partial ? "partial" : "full");
+					for (int yy = 0; yy < viewH; yy++)
+						std::memcpy(out.at(0, yy), ScenePtr(0, yy), viewW);
+					break;
+				}
+			}
+		}
+	}
 	prevValid = !forceFull;
 
 	// to the present: camera move and changed scene rectangles

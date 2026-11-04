@@ -48,6 +48,7 @@ void msdl_cells_frame(const Uint8 *pixels, int pitch, int w, int h);
 void msdl_view_scene(int dx, int dy, int vw, int vh, const int *rects, int n, int full);
 void msdl_view_overlay(int x, int y, int w, int h);
 void msdl_view_overlay_all(void);
+int msdl_view_take_damage(int *out4, int max);
 void msdl_view_present(const Uint8 *pix, int pitch, int w, int h);
 int msdl_view_upload(void (*shift)(int dx, int dy, int vw, int vh), void (*send)(int x, int y, int w, int h));
 int msdl_view_verify_on(void);

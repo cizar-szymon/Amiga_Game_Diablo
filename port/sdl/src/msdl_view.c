@@ -25,6 +25,10 @@
 typedef struct { int x, y, w, h; } VRect;
 
 static VRect scene_r[MAXR], ov_cur[MAXR], ov_prev[MAXR];
+/* everything drawn on the game's buffer outside the scene passes since the
+   scene was last copied into it (stage 2c: copy back only these) */
+static VRect dmg[MAXR];
+static int n_dmg, dmg_all = 1;
 static int n_scene, n_cur, n_prev;
 static int cur_all, prev_all;
 static int have_scene, scene_full, view_dx, view_dy;
@@ -58,7 +62,11 @@ void msdl_view_scene(int dx, int dy, int vw, int vh, const int *rects, int n, in
 void msdl_view_overlay(int x, int y, int w, int h)
 {
     int x1, y1;
-    if (view_h <= 0 || cur_all) return;
+    if (view_h <= 0) return;
+    if (cur_all) {
+        dmg_all = 1;
+        return;
+    }
     x1 = x + w;
     y1 = y + h;
     if (x < 0) x = 0;
@@ -75,8 +83,32 @@ void msdl_view_overlay(int x, int y, int w, int h)
             int nx1 = x1 > l->x + l->w ? x1 : l->x + l->w;
             l->x = nx;
             l->w = nx1 - nx;
+            if (n_dmg > 0) {
+                VRect *d = &dmg[n_dmg - 1];
+                int dx0 = x < d->x ? x : d->x, dx1 = x1 > d->x + d->w ? x1 : d->x + d->w;
+                if (d->y == y && d->h == y1 - y) {
+                    d->x = dx0;
+                    d->w = dx1 - dx0;
+                    return;
+                }
+            }
+            if (n_dmg < MAXR) {
+                dmg[n_dmg].x = x; dmg[n_dmg].y = y; dmg[n_dmg].w = x1 - x; dmg[n_dmg].h = y1 - y;
+                n_dmg++;
+            } else {
+                dmg_all = 1;
+            }
             return;
         }
+    }
+    if (n_dmg < MAXR) {
+        dmg[n_dmg].x = x;
+        dmg[n_dmg].y = y;
+        dmg[n_dmg].w = x1 - x;
+        dmg[n_dmg].h = y1 - y;
+        n_dmg++;
+    } else {
+        dmg_all = 1;
     }
     if (n_cur >= MAXR) {
         cur_all = 1;
@@ -89,7 +121,28 @@ void msdl_view_overlay(int x, int y, int w, int h)
     n_cur++;
 }
 
-void msdl_view_overlay_all(void) { cur_all = 1; }
+void msdl_view_overlay_all(void)
+{
+    cur_all = 1;
+    dmg_all = 1;
+}
+
+/* The overlay damage since the last call (the scene copy): rectangles as
+   x, y, w, h in out4; -1 when everything must be copied. */
+int msdl_view_take_damage(int *out4, int max)
+{
+    int i, n = n_dmg;
+    int all = dmg_all || n > max;
+    for (i = 0; !all && i < n; i++) {
+        out4[i * 4] = dmg[i].x;
+        out4[i * 4 + 1] = dmg[i].y;
+        out4[i * 4 + 2] = dmg[i].w;
+        out4[i * 4 + 3] = dmg[i].h;
+    }
+    n_dmg = 0;
+    dmg_all = 0;
+    return all ? -1 : n;
+}
 
 /* ---- the model of the card (verify mode) ---- */
 static void model_copy(const Uint8 *pix, int pitch, int x, int y, int w, int h)
@@ -203,6 +256,7 @@ void msdl_view_present(const Uint8 *pix, int pitch, int w, int h)
         if (have_scene) verify_model(pix, pitch);
         else model_valid = 0;
     }
+    if (!have_scene) dmg_all = 1;   /* a menu or other screen drew the frame */
     memcpy(ov_prev, ov_cur, sizeof(VRect) * (size_t)n_cur);
     n_prev = n_cur;
     prev_all = cur_all;

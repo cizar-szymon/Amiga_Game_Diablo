@@ -72,6 +72,9 @@ const DirtyRect *GetDirtyRects(int &count);
 /** Test (verify mode): did the last draw write just above the scene? Logs who. */
 void CheckTopGuard(const char *path, int ax, int ay, int w, int h, uint32_t k1, uint32_t k2, const DirtyRect &r);
 inline bool traceGuard = false;
+/** Where the scene window starts on the scene canvas (stage 2d): scene
+    coordinates = buffer coordinates - origin. */
+inline int sceneOX = 0, sceneOY = 0;
 
 /**
  * Called at the start of every drawing primitive when mode != Off.
@@ -81,8 +84,11 @@ inline bool traceGuard = false;
 template <typename DrawFn>
 inline void Intercept(const Surface &out, int x, int y, int w, int h, uint32_t k1, uint32_t k2, uint32_t k3, DrawFn draw)
 {
-	const int ax = x + out.region.x;
-	const int ay = y + out.region.y;
+	// out's origin in scene coordinates
+	const int orx = out.region.x - sceneOX;
+	const int ory = out.region.y - sceneOY;
+	const int ax = x + orx;
+	const int ay = y + ory;
 	if (mode == Mode::Record) {
 		RecordPrimitive(ax, ay, w, h, k1, k2, k3);
 		return;
@@ -98,8 +104,8 @@ inline void Intercept(const Surface &out, int x, int y, int w, int h, uint32_t k
 		if (x1 <= x0 || y1 <= y0)
 			continue;
 		// the dirty rectangle relative to `out`
-		const int rx = r[i].x - out.region.x;
-		const int ry = r[i].y - out.region.y;
+		const int rx = r[i].x - orx;
+		const int ry = r[i].y - ory;
 		const Surface sub = out.subregion(rx, ry, r[i].w, r[i].h);
 		draw(sub, -rx, -ry);
 		if (traceGuard)
@@ -125,17 +131,20 @@ SDL_Surface *TileScratch();
 template <typename DrawFn>
 inline void InterceptTile(const Surface &out, int x, int y, int w, int h, uint32_t k1, uint32_t k2, uint32_t k3, bool inexactClip, DrawFn draw)
 {
-	const int ax = x + out.region.x;
-	const int ay = y + out.region.y;
+	// out's origin in scene coordinates
+	const int orx = out.region.x - sceneOX;
+	const int ory = out.region.y - sceneOY;
+	const int ax = x + orx;
+	const int ay = y + ory;
 	if (mode == Mode::Record) {
 		RecordPrimitive(ax, ay, w, h, k1, k2, k3);
 		return;
 	}
 	// the tile clipped by `out`, as a full draw clips it (absolute coordinates)
-	int ex0 = ax > out.region.x ? ax : out.region.x;
-	int ey0 = ay > out.region.y ? ay : out.region.y;
-	int ex1 = (ax + w) < (out.region.x + out.region.w) ? (ax + w) : (out.region.x + out.region.w);
-	int ey1 = (ay + h) < (out.region.y + out.region.h) ? (ay + h) : (out.region.y + out.region.h);
+	int ex0 = ax > orx ? ax : orx;
+	int ey0 = ay > ory ? ay : ory;
+	int ex1 = (ax + w) < (orx + out.region.w) ? (ax + w) : (orx + out.region.w);
+	int ey1 = (ay + h) < (ory + out.region.h) ? (ay + h) : (ory + out.region.h);
 	if (ex1 <= ex0 || ey1 <= ey0)
 		return;
 	int n;
@@ -163,8 +172,8 @@ inline void InterceptTile(const Surface &out, int x, int y, int w, int h, uint32
 		// the triangle renderers cannot clip top AND bottom either
 		const bool vOneSide = y0 == ay || y1 == ay + h;
 		if (whole || (!inexactClip && ((hWhole && vOneSide) || (oneSide && vTileWhole)))) {
-			const int rx = r[i].x - out.region.x;
-			const int ry = r[i].y - out.region.y;
+			const int rx = r[i].x - orx;
+			const int ry = r[i].y - ory;
 			draw(out.subregion(rx, ry, r[i].w, r[i].h), -rx, -ry);
 			if (traceGuard)
 				CheckTopGuard("tile direct", ax, ay, w, h, k1, k2, r[i]);
@@ -175,7 +184,7 @@ inline void InterceptTile(const Surface &out, int x, int y, int w, int h, uint32
 		if (s == nullptr || ew > s->w || eh > s->h)
 			continue;
 		uint8_t *sp = static_cast<uint8_t *>(s->pixels);
-		const int ox = ex0 - out.region.x, oy = ey0 - out.region.y; // in `out`
+		const int ox = ex0 - orx, oy = ey0 - ory; // in `out`
 		for (int yy = 0; yy < eh; yy++) {
 			const uint8_t *src = out.at(ox, oy + yy);
 			for (int xx = 0; xx < ew; xx++)
@@ -183,7 +192,7 @@ inline void InterceptTile(const Surface &out, int x, int y, int w, int h, uint32
 		}
 		draw(Surface(s, SDL_Rect { 0, 0, ew, eh }), -ox, -oy);
 		for (int yy = y0; yy < y1; yy++) {
-			uint8_t *dst = out.at(x0 - out.region.x, yy - out.region.y);
+			uint8_t *dst = out.at(x0 - orx, yy - ory);
 			const uint8_t *src = sp + (yy - ey0) * s->pitch + (x0 - ex0);
 			for (int xx = 0; xx < x1 - x0; xx++)
 				dst[xx] = src[xx];

@@ -128,3 +128,24 @@ ekranu):
 
 (Przed rendererem komórkowym: loch 15,1 kl./s / 65 ms.) Stały narzut ~20 ms: zapis 7, kopia sceny 7,
 wysyłka 6 – etap 2 (VRAM, blitter) usuwa kopię i zmniejsza wysyłkę; zapis do przyspieszenia.
+
+### Renderer komórkowy, etap 2 (4.11.2026, Amiga 1)
+
+- 2a: nakładki (teksty, paski, kursor, okienka, blity SDL na okno) zgłaszają prostokąty;
+  `DIABLO_VERIFY_PRESENT` (model karty w Fast RAM + odczyt VRAM): 0 różnic w mieście i lochu.
+- 2b: widok na karcie przesuwa blitter (`BltBitMap`), do VRAM tylko brudne prostokąty sceny i
+  nakładek; panel przez porównanie z kopią. Do karty 296 → 28–63 KB/klatkę. `DIABLO_PRESENT=FULL` – stary sposób.
+- 2c: przy stojącej kamerze do bufora gry kopiowane tylko brudne prostokąty i miejsca nakładek
+  (kopia 7,3 → 1,2–2,2 ms).
+- 2d: scena w oknie na płótnie +256 px z każdej strony; ruch kamery = przesunięcie okna
+  (5,5 ms `memmove` → 0), kopia tylko przy dojściu do brzegu płótna.
+- Okresowe sprawdzanie marginesów w zwykłej grze dawało zacięcia 70 ms co ~2 s – tylko w trybie kontrolnym.
+
+| Scena | przed rendererem | etap 1 | etap 2 (2a–2d) |
+|---|---|---|---|
+| loch, walka w miejscu | 15,1 kl./s (65 ms) | 20,7 (48 ms) | **24,7 (40 ms)** |
+| Tristram, postój (przy mieszkańcach) | – | 27,1 (36 ms) | **35,4 (28 ms)** |
+
+Rozkład w lochu (ms/klatkę): zapis 6,5, rysowanie 21,7 (26% brudnych), kopia 1,8, wysyłka 4,6.
+Testy: `sh tools/verify_all.sh <etykieta>` (wszystkie kontrole + Avail), pomiary `tools/scene_dungeon.sh`,
+`tools/scene_town.sh`.
