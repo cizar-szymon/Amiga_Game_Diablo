@@ -6,6 +6,7 @@
 #                                         LICENSE.md), empty data/ and save/ with a ReadMe
 # No game data (diabdat.mpq, Blizzard) and no voice pack (pl.mpq) - the script refuses
 # to make a release that has any .mpq or .sv in it.
+#   private/DiabloWarp-<v>-full.zip      only on the PC: + data/diabdat.mpq and data/pl.mpq
 # On the Amiga:  UnZip DiabloWarp-<v>.zip -d Work:Games
 #   tools/make_release.sh
 set -e
@@ -71,3 +72,18 @@ for f in "$R"/DiabloWarp-*.zip; do
 done
 python tools/make_zip.py "$R/DiabloWarp-$V.zip" "$R" DiabloWarp DiabloWarp.info
 ls -l "$R/DiabloWarp-$V.zip"
+
+# the full release, only on the PC (private/ is outside git): the same + the game data
+# (diabdat.mpq, CD) and the Polish speech converted for the port (pl.mpq) in data/
+MPQ=AmigaPortOrginal/diabdat.mpq
+PL=private/voice/pl-wav.mpq
+if [ -f "$MPQ" ] && [ -f "$PL" ]; then
+  for f in private/DiabloWarp-*-full.zip; do
+    [ -e "$f" ] && [ "$f" != "private/DiabloWarp-$V-full.zip" ] && mv "$f" private/old/
+  done
+  python tools/make_zip.py "private/DiabloWarp-$V-full.zip" "$R" DiabloWarp DiabloWarp.info \
+    --file "$MPQ" DiabloWarp/data/diabdat.mpq --file "$PL" DiabloWarp/data/pl.mpq
+  ls -l "private/DiabloWarp-$V-full.zip"
+else
+  echo "no $MPQ or $PL: no full release" >&2
+fi

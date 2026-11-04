@@ -13,7 +13,7 @@
 | 5a. Dźwięk: efekty, muzyka, mowa (Paula, ~1–3,5% CPU), polskie głosy (`pl.mpq` przerobiony na WAV) | ✅ 4.11 |
 | 5b. Ikona z Tool Types, stos 1 000 000 (także z ikony), języki pl/en/de, filmy 2× | ✅ 4.11 |
 | 6. Standard klawiszy (P pauza, Esc), F10 raport do `RAM:Diablo-report`, numer wersji 0.46 (`port/VERSION`, menu, `$VER`) | ✅ (menu i F10 do sprawdzenia na Amidze) |
-| 7. Wydanie 0.46: opisy PL/EN, historia wydań, `tools/make_release.sh` → `releases/amiga`, ZIP (sprawdzony `UnZip` na Amidze 2), README, LICENSE | ✅ lokalnie; GitHub `cizar-szymon/Amiga_Game_Diablo` czeka na zgodę |
+| 7. Wydanie 0.46: opisy PL/EN, historia wydań, `tools/make_release.sh` → `releases/amiga`, ZIP (sprawdzony `UnZip` na Amidze 2), pełna paczka `private/DiabloWarp-0.46-full.zip` (618 MB: + `diabdat.mpq` z CD i przerobiony `pl.mpq` w `data/`), README, LICENSE | ✅ lokalnie; GitHub `cizar-szymon/Amiga_Game_Diablo` czeka na zgodę |
 
 ## Decyzje (3.11.2026, zaakceptowane przez użytkownika)
 

@@ -1,9 +1,11 @@
 #!/usr/bin/env python3
 """A release ZIP for the Amiga (tools/make_release.sh).
 
-  python tools/make_zip.py OUT.zip BASE NAME... [--add DIR ARCDIR]...
+  python tools/make_zip.py OUT.zip BASE NAME... [--add DIR ARCDIR]... [--file SRC ARCNAME]...
 
 NAME: files or directories under BASE, stored with their path from BASE.
+--file SRC ARCNAME: one file stored (not deflated, read in pieces) as ARCNAME -
+the full release's game data (diabdat.mpq, pl.mpq: already compressed, big).
 --add DIR ARCDIR: the files of DIR (not recursive; data: only *.PAK, music: *.RAW)
 stored under ARCDIR - the full release's game data and music.
 Directories get their own entries (empty data/ unpacks too); the files are
@@ -27,6 +29,20 @@ def put(z, path, arcname, method=zipfile.ZIP_DEFLATED):
     info.compress_type = method
     with open(path, "rb") as f:
         z.writestr(info, f.read())
+
+
+def put_big(z, path, arcname):
+    """A big file stored as it is, copied in 1 MB pieces (ZIP64 when needed)."""
+    info = zipfile.ZipInfo.from_file(path, arcname)
+    info.create_system = 3
+    info.external_attr = (0o100000 | 0o644) << 16
+    info.compress_type = zipfile.ZIP_STORED
+    with open(path, "rb") as f, z.open(info, "w", force_zip64=True) as out:
+        while True:
+            b = f.read(1 << 20)
+            if not b:
+                break
+            out.write(b)
 
 
 def put_dir(z, arcname):
@@ -55,6 +71,7 @@ def main():
     ap.add_argument("base")
     ap.add_argument("names", nargs="+")
     ap.add_argument("--add", nargs=2, action="append", default=[], metavar=("DIR", "ARCDIR"))
+    ap.add_argument("--file", nargs=2, action="append", default=[], metavar=("SRC", "ARCNAME"))
     a = ap.parse_args()
 
     with zipfile.ZipFile(a.out, "w", zipfile.ZIP_DEFLATED, compresslevel=9) as z:
@@ -67,6 +84,8 @@ def main():
                     continue
                 method = zipfile.ZIP_STORED if f.upper().endswith(".RAW") else zipfile.ZIP_DEFLATED
                 put(z, os.path.join(d, f), arcdir + "/" + f, method)
+        for src, arcname in a.file:
+            put_big(z, src, arcname)
     print(a.out, os.path.getsize(a.out), "bytes")
 
 
