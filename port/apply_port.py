@@ -547,7 +547,7 @@ CHANGES = [
      "#if !defined(NOSOUND) || defined(__amigaos__)\n\tuint32_t sfxFrames = GetSFXLength(nSFX);\n"),
     ("Source/utils/soundsample.h",
      "#else\n\t\treturn stream_ != nullptr;\n#endif\n",
-     "#elif defined(__amigaos__)\n\t\treturn pcm_ != nullptr;\n#else\n\t\treturn stream_ != nullptr;\n#endif\n"),
+     "#elif defined(__amigaos__)\n\t\treturn pcm_ != nullptr || !file_path_.empty(); // streamed: only its path is kept\n#else\n\t\treturn stream_ != nullptr;\n#endif\n"),
     ("Source/utils/soundsample.h",
      "#else\n\tstd::unique_ptr<Aulib::Stream> stream_;\n#endif\n",
      "#elif defined(__amigaos__)\n"
@@ -564,6 +564,93 @@ CHANGES = [
      "\t/** Warp port: plays once more on a voice of its own (the sound may already be playing). */\n"
      "\tbool PlayNew(int logSoundVolume, int logUserVolume, int logPan);\n"
      "#else\n\tstd::unique_ptr<Aulib::Stream> stream_;\n#endif\n"),
+    # Record pass, column cache (amiga_cells.hpp): DrawCell's primitives
+    # depend on the tile, its piece, light level and wall transparency only;
+    # with the same key the summary of the last frame is recorded instead.
+    ("Source/engine/render/scrollrt.cpp",
+     "void DrawCell(const Surface &out, const Lightmap lightmap, Point tilePosition, Point targetBufferPosition, int lightTableIndex)\n{\n\tconst uint16_t levelPieceId = dPiece[tilePosition.x][tilePosition.y];\n",
+     "void DrawCellImpl(const Surface &out, const Lightmap lightmap, Point tilePosition, Point targetBufferPosition, int lightTableIndex);\n"
+     "\n"
+     "void DrawCell(const Surface &out, const Lightmap lightmap, Point tilePosition, Point targetBufferPosition, int lightTableIndex)\n"
+     "{\n"
+     "#ifdef __amigaos__\n"
+     "\tif (amiga_cells::mode == amiga_cells::Mode::Record && !*GetOptions().Graphics.perPixelLighting) {\n"
+     "\t\tconst bool transparency = TileHasAny(tilePosition, TileProperties::Transparent) && TransList[dTransVal[tilePosition.x][tilePosition.y]];\n"
+     "\t\tconst uint32_t key = (static_cast<uint32_t>(dPiece[tilePosition.x][tilePosition.y]) << 16)\n"
+     "\t\t    | (static_cast<uint32_t>(lightTableIndex & 0x7FFF) << 1) | (transparency ? 1U : 0U);\n"
+     "\t\tif (amiga_cells::ColumnReplay(0, out, tilePosition.x, tilePosition.y, key, targetBufferPosition.x, targetBufferPosition.y))\n"
+     "\t\t\treturn;\n"
+     "\t\tamiga_cells::ColumnCaptureBegin(out, targetBufferPosition.x, targetBufferPosition.y);\n"
+     "\t\tDrawCellImpl(out, lightmap, tilePosition, targetBufferPosition, lightTableIndex);\n"
+     "\t\tamiga_cells::ColumnCaptureEnd(0, tilePosition.x, tilePosition.y, key);\n"
+     "\t\treturn;\n"
+     "\t}\n"
+     "#endif\n"
+     "\tDrawCellImpl(out, lightmap, tilePosition, targetBufferPosition, lightTableIndex);\n"
+     "}\n"
+     "\n"
+     "void DrawCellImpl(const Surface &out, const Lightmap lightmap, Point tilePosition, Point targetBufferPosition, int lightTableIndex)\n{\n\tconst uint16_t levelPieceId = dPiece[tilePosition.x][tilePosition.y];\n"),
+    ("Source/engine/render/scrollrt.cpp",
+     "void DrawFloorTile(const Surface &out, const Lightmap &lightmap, Point tilePosition, Point targetBufferPosition)\n{\n\tconst int lightTableIndex = dLight[tilePosition.x][tilePosition.y];\n",
+     "void DrawFloorTileImpl(const Surface &out, const Lightmap &lightmap, Point tilePosition, Point targetBufferPosition);\n"
+     "\n"
+     "void DrawFloorTile(const Surface &out, const Lightmap &lightmap, Point tilePosition, Point targetBufferPosition)\n"
+     "{\n"
+     "#ifdef __amigaos__\n"
+     "\tif (amiga_cells::mode == amiga_cells::Mode::Record && !*GetOptions().Graphics.perPixelLighting) {\n"
+     "\t\tconst uint32_t key = (static_cast<uint32_t>(dPiece[tilePosition.x][tilePosition.y]) << 16)\n"
+     "\t\t    | static_cast<uint32_t>(dLight[tilePosition.x][tilePosition.y] & 0xFFFF);\n"
+     "\t\tif (amiga_cells::ColumnReplay(1, out, tilePosition.x, tilePosition.y, key, targetBufferPosition.x, targetBufferPosition.y))\n"
+     "\t\t\treturn;\n"
+     "\t\tamiga_cells::ColumnCaptureBegin(out, targetBufferPosition.x, targetBufferPosition.y);\n"
+     "\t\tDrawFloorTileImpl(out, lightmap, tilePosition, targetBufferPosition);\n"
+     "\t\tamiga_cells::ColumnCaptureEnd(1, tilePosition.x, tilePosition.y, key);\n"
+     "\t\treturn;\n"
+     "\t}\n"
+     "#endif\n"
+     "\tDrawFloorTileImpl(out, lightmap, tilePosition, targetBufferPosition);\n"
+     "}\n"
+     "\n"
+     "void DrawFloorTileImpl(const Surface &out, const Lightmap &lightmap, Point tilePosition, Point targetBufferPosition)\n{\n\tconst int lightTableIndex = dLight[tilePosition.x][tilePosition.y];\n"),
+    # Start from the icon: its Tool Types (or the same words in the Shell's
+    # arguments) become the game's options (port/sdl/src/amiga_wb.c).
+    ("Source/main.cpp",
+     "\tconst int result = devilution::DiabloMain(argc, argv);\n",
+     "#ifdef __amigaos__\n"
+     "\tamiga_args(&argc, &argv);\n"
+     "#endif\n"
+     "\tconst int result = devilution::DiabloMain(argc, argv);\n"),
+    ("Source/main.cpp",
+     "extern \"C\" int main(int argc, char **argv)\n",
+     "#ifdef __amigaos__\n"
+     "extern \"C\" void amiga_args(int *argc, char ***argv);\n"
+     "#endif\n"
+     "\n"
+     "extern \"C\" int main(int argc, char **argv)\n"),
+    ("Source/diablo.cpp",
+     "\tLoadOptions();\n\tif (demo::IsRunning()) demo::OverrideOptions();\n",
+     "\tLoadOptions();\n\tif (demo::IsRunning()) demo::OverrideOptions();\n"
+     "#ifdef __amigaos__\n"
+     "\tif (amiga_opt_showfps >= 0)\n"
+     "\t\tGetOptions().Graphics.showFPS.SetValue(amiga_opt_showfps != 0);\n"
+     "#endif\n"),
+    ("Source/diablo.cpp",
+     "int DiabloMain(int argc, char **argv)\n{\n",
+     "#ifdef __amigaos__\n"
+     "extern \"C\" int amiga_opt_showfps; // Tool Type SHOWFPS (port/sdl/src/amiga_wb.c)\n"
+     "#endif\n"
+     "\n"
+     "int DiabloMain(int argc, char **argv)\n{\n"),
+    # Translations: the .gmo from the assets folder was read with a seek and a
+    # read per string (thousands of AmigaDOS calls): de.gmo took 13 s, the
+    # screen grey meanwhile. Read the whole file at once, as from an MPQ.
+    ("Source/utils/language.cpp",
+     "\tconst bool readWholeFile = handle.handle->type == SDL_RWOPS_UNKNOWN;\n",
+     "#ifdef __amigaos__\n"
+     "\tconst bool readWholeFile = true;\n"
+     "#else\n"
+     "\tconst bool readWholeFile = handle.handle->type == SDL_RWOPS_UNKNOWN;\n"
+     "#endif\n"),
     # Videos on the 8-bit screen: the game cannot scale indexed output and
     # shows them at their size (~320x160); here whole multiples (2x),
     # every source pixel doubled across and every row repeated.

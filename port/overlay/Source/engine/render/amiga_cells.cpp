@@ -62,7 +62,7 @@ DirtyRect fullRect;
 
 int envFull = -1, envVerify = -1, envStats = -1, envNoGuard = -1, envNoSkip = -1;
 bool noSkip = false;
-int envClear = -1, envNoDirect = -1;
+int envClear = -1, envNoDirect = -1, envNoColumn = -1;
 /** direct draw while the camera moves when the last frame had at least this share dirty (%) */
 int directShare = 80;
 
@@ -501,6 +501,95 @@ void RecordEdge(int x, int y, int w, int h, bool masked)
 			g.e[cy][cx] = 1;
 }
 
+namespace {
+constexpr int CacheTiles = 112; // dungeon size (MAXDUNX / MAXDUNY)
+struct ColumnEntry {
+	uint32_t key;
+	uint32_t hash;
+	int16_t x0, y0, x1, y1; // box of the primitives, relative to the target position
+	uint8_t valid;
+	uint8_t masked;
+	uint8_t empty;
+};
+ColumnEntry columnCache[2][CacheTiles][CacheTiles]; // [0] DrawCell, [1] DrawFloorTile
+int capOX, capOY;
+uint32_t capHash;
+int capX0, capY0, capX1, capY1;
+bool capMasked;
+unsigned long stColumnHits, stColumnMisses;
+
+void ClearColumnCache()
+{
+	for (auto &kind : columnCache)
+		for (auto &row : kind)
+			for (ColumnEntry &e : row)
+				e.valid = 0;
+}
+
+void RecordColumn(const ColumnEntry &e, int ox, int oy)
+{
+	if (e.empty)
+		return;
+	const int x = ox + e.x0, y = oy + e.y0, w = e.x1 - e.x0, h = e.y1 - e.y0;
+	RecordPrimitive(x, y, w, h, e.hash, 0xC011C0DEU, e.key);
+	RecordEdge(x, y, w, h, e.masked != 0);
+}
+} // namespace
+
+void CapturePrimitive(int x, int y, int w, int h, uint32_t k1, uint32_t k2, uint32_t k3, bool masked)
+{
+	const int rx = x - capOX, ry = y - capOY;
+	capHash = Mix(Mix(Mix(Mix(Mix(Mix(capHash, k1), k2), k3), static_cast<uint32_t>(rx)), static_cast<uint32_t>(ry)), static_cast<uint32_t>((w << 16) ^ h));
+	if (rx < capX0) capX0 = rx;
+	if (ry < capY0) capY0 = ry;
+	if (rx + w > capX1) capX1 = rx + w;
+	if (ry + h > capY1) capY1 = ry + h;
+	if (masked)
+		capMasked = true;
+}
+
+bool ColumnReplay(int kind, const Surface &out, int tx, int ty, uint32_t key, int targetX, int targetY)
+{
+	if (tx < 0 || ty < 0 || tx >= CacheTiles || ty >= CacheTiles || Env(envNoColumn, "DIABLO_NOCOLUMN"))
+		return false;
+	const ColumnEntry &e = columnCache[kind & 1][tx][ty];
+	if (!e.valid || e.key != key)
+		return false;
+	stColumnHits++;
+	RecordColumn(e, targetX + out.region.x - sceneOX, targetY + out.region.y - sceneOY);
+	return true;
+}
+
+void ColumnCaptureBegin(const Surface &out, int targetX, int targetY)
+{
+	capOX = targetX + out.region.x - sceneOX;
+	capOY = targetY + out.region.y - sceneOY;
+	capHash = HashInit;
+	capX0 = capY0 = 0x7FFF;
+	capX1 = capY1 = -0x8000;
+	capMasked = false;
+	columnCapture = true;
+}
+
+void ColumnCaptureEnd(int kind, int tx, int ty, uint32_t key)
+{
+	columnCapture = false;
+	ColumnEntry e {};
+	e.key = key;
+	e.hash = capHash;
+	e.empty = capX1 <= capX0 ? 1 : 0;
+	e.x0 = static_cast<int16_t>(capX0);
+	e.y0 = static_cast<int16_t>(capY0);
+	e.x1 = static_cast<int16_t>(capX1);
+	e.y1 = static_cast<int16_t>(capY1);
+	e.masked = capMasked ? 1 : 0;
+	e.valid = 1;
+	stColumnMisses++;
+	if (tx >= 0 && ty >= 0 && tx < CacheTiles && ty < CacheTiles)
+		columnCache[kind & 1][tx][ty] = e;
+	RecordColumn(e, capOX, capOY);
+}
+
 void CheckTopGuard(const char *path, int ax, int ay, int w, int h, uint32_t k1, uint32_t k2, const DirtyRect &r)
 {
 	static int reports = 0;
@@ -594,6 +683,8 @@ void DrawScene(const Surface &out, int firstTileX, int firstTileY, int offsetX, 
 	}
 	if (scene->w != viewW + 2 * CanvasPad || levelKey != prevLevelKey)
 		prevValid = false;
+	if (levelKey != prevLevelKey)
+		ClearColumnCache();
 	prevLevelKey = levelKey;
 
 	// camera: world pixel at the view's top left

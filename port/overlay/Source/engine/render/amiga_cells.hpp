@@ -133,9 +133,30 @@ inline void Intercept(const Surface &out, int x, int y, int w, int h, uint32_t k
 
 /** Record pass only: the primitive at x, y (relative to `out`), without a draw closure. */
 void RecordEdge(int x, int y, int w, int h, bool masked);
+
+/**
+ * Column cache (record pass): what DrawCell records for a tile depends only
+ * on the tile, its dungeon piece, light level and wall transparency (the
+ * key). Its primitives are kept as one summary (hash of all of them, their
+ * bounding box) per tile; with the same key the next frame records that
+ * summary alone and does not run DrawCell. While a column is captured,
+ * RecordAt adds to the summary instead of recording.
+ */
+inline bool columnCapture = false;
+void CapturePrimitive(int x, int y, int w, int h, uint32_t k1, uint32_t k2, uint32_t k3, bool masked);
+/** true: the summary of tile (tx, ty) with this key was recorded (DrawCell not needed).
+    kind 0: DrawCell, 1: DrawFloorTile. */
+bool ColumnReplay(int kind, const Surface &out, int tx, int ty, uint32_t key, int targetX, int targetY);
+void ColumnCaptureBegin(const Surface &out, int targetX, int targetY);
+void ColumnCaptureEnd(int kind, int tx, int ty, uint32_t key);
+
 inline void RecordAt(const Surface &out, int x, int y, int w, int h, uint32_t k1, uint32_t k2, uint32_t k3, bool masked)
 {
 	const int ax = x + out.region.x - sceneOX, ay = y + out.region.y - sceneOY;
+	if (columnCapture) {
+		CapturePrimitive(ax, ay, w, h, k1, k2, k3, masked);
+		return;
+	}
 	RecordPrimitive(ax, ay, w, h, k1, k2, k3);
 	RecordEdge(ax, ay, w, h, masked);
 }

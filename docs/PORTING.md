@@ -345,3 +345,78 @@ Kl./s prawie bez zmian: w marszu dominuje stały koszt trybu komórkowego – pr
 płytki widoku co klatkę), kopia sceny do bufora gry 3–6 ms, wysłanie na kartę 2–5 ms, logika ~4 ms,
 dźwięk ~2 ms (~20 ms zanim cokolwiek się narysuje); w lochu ze skokami dodatkowo 2 pełne klatki na każdy
 przeskok światła (klatka bezpośrednia, potem pełna w komórkach).
+
+### Porównanie ze starym portem z Aminetu (4.11.2026, Amiga 2: A4000 + Warp 7060)
+
+Stary port (DevilutionX 1.0.0, 22.02.2020, SDL1, ekran 640×480×8) uruchomiony z kopii programu w
+`WorkSD:Games/DiabloOld` (`DevilutionX -n -f --data-dir WorkSD:Games/Diablo/` – dane z instalacji
+użytkownika tylko do odczytu, zapisy obok kopii), postać ANDY z tego samego zapisu w lochu (poziom 2).
+Licznik `-f` na zrzutach: **12–13 kl./s** w lochu (postój i walka, obraz w całości co klatkę).
+Nowy port na tej samej Amidze: walka w lochu 48 kl./s (z dźwiękiem 46–47), marsz po lochu 18–30 kl./s.
+Uwaga: stara wersja trzyma zapisy w `ENVARC:diasurgical/devilution/` (nie w swoim katalogu ani w
+`--data-dir`) i zapisuje przy każdym wyjściu, także po Ctrl-C – pierwsze dwa przebiegi wczytały i
+nadpisały postać użytkownika ANDY (stan po teście skopiowany na PC: `private/amiga2-envarc-after-test`).
+Pomiar właściwy (za zgodą użytkownika): zapis AR (`single_1.sv.bak` nowego portu) wgrany jako
+`ENVARC:…/single_0.sv`, ANDY zachowany w `RAM:` i przywrócony po teście. Ta sama scena walki ze
+szkieletami co `scene_dungeon.sh`: **13 kl./s** (stary port, bez trybu bez obrażeń – AR ginie po ~30 s)
+wobec **48 kl./s** nowego portu (46–47 z dźwiękiem).
+
+### Próba: mniejsze światło postaci (4.11.2026, odrzucona)
+
+Opcja „Light Radius” (100/85/70% promienia światła postaci, tylko w `ProcessLightList`): przy 70% koło
+światła wyraźnie mniejsze, ale marsz po lochu bez zysku (100%: 23,2 kl./s średnio z 4 odcinków, 70%:
+25,7, 70% + Light Steps: 24,3 – w granicach rozrzutu). Płytki poza kołem nie są czarne (światło otoczenia
+poziomu), rysuje je ta sama pętla z tablicą światła; przy świetle zmieniającym się co takt i tak działa
+rysowanie bezpośrednie całego obrazu. Opcja usunięta (decyzja użytkownika). Płytki w VRAM: za mało pamięci
+karty (17–27 MB na poziom z wersjami światła).
+
+### Porównanie ze starym portem, 3 sceny, 100 MHz (4.11.2026, Amiga 2: A4000 + Warp 7060)
+
+Zegar ustawiony `WarpTool CPUFreqHz=100000000` (wcześniej na Amidze 2 było 105 MHz – wszystkie
+wcześniejsze dzisiejsze pomiary na niej są przy 105). Stary port sterowany myszą przez
+`tools/amiga/mouse.c` (zdarzenia `input.device`: `move`, `click`, `hold X Y MS`), kl./s z licznika `-f`
+na zrzutach (`tools/fpscrop.py`); zapisy starego portu w `ENVARC:diasurgical/devilution` przed testem
+skopiowane (PC: `private/amiga2-envarc-before-compare`, Amiga: `RAM:envarc-bak`) i po teście przywrócone
+(porównane bajt po bajcie).
+
+| Scena | stary port (2020) | nowy port (z dźwiękiem) |
+|---|---|---|
+| Tristram, postój | 17 | **91** |
+| Tristram, marsz (4 kierunki × 5 s) | 13–17 | **47–66** |
+| loch, marsz (AR, 4 kierunki × 5 s) | 10–13 | **17–26** |
+| loch, walka ze szkieletami (AR) | 11–13 | **46** |
+
+Stary port w mieście: nowa postać (zapisu WARP nie wczyta), więc inne miejsce startu. W lochu ta sama
+postać AR i ten sam zapis; stary port bez trybu bez obrażeń (AR ginie po ~30 s walki).
+
+Krok B (bez kopii sceny do bufora gry przy ruchu kamery): **nie robimy** (decyzja użytkownika 4.11.2026).
+
+### Ikona, Tool Types, stos, języki (4.11.2026, Amiga 2)
+
+- Ikona `devilutionx.info` (`sh tools/make_game_icon.sh`): logo DIABLO z menu (104×40, ColorIcon),
+  stos w ikonie 1 000 000. Tool Types (te same słowa działają jako argumenty w Shellu, `amiga_wb.c`
+  `amiga_args`): `DATADIR=` (→ `--data-dir`), `SAVEDIR=` (→ `--save-dir` i `--config-dir`),
+  `LANGUAGE=pl|en|de` (→ `--lang`, każdy język gry), `SKIPINTRO` (→ `-n`), `SHOWFPS=YES|NO` (licznik
+  kl./s, nadpisuje `diablo.ini`), `NOSOUND`. W ikonie: `DATADIR=WorkSD:Games/Diablo`,
+  `SAVEDIR=PROGDIR:save`, `LANGUAGE=pl`, `SHOWFPS=YES`, podpowiedzi `(LANGUAGE=en)`, `(LANGUAGE=de)`,
+  `(SKIPINTRO)`, `(NOSOUND)`.
+- Stos: `__stack = 1000000` + odwołanie do `__stkinit` w `msdl_core.c` (bez niego libnix nie zmienia
+  stosu przy starcie z ikony); w mapie linkera `swapstack.o`; gra uruchomiona z ikony
+  (`tools/amiga/wbrun.c`, `OpenWorkbenchObject`) ma stos 1 000 000 (`tools/amiga/taskstack.c`).
+- Języki: tłumaczenia gry (`assets/*.gmo`) i czcionki z polskimi i niemieckimi znakami są w danych;
+  polski, angielski i niemiecki sprawdzone (menu, wybór postaci). Tłumaczenie z katalogu `assets` było
+  czytane osobnym `seek` + `read` dla każdego napisu: de.gmo 13 094 ms (szary ekran przez cały ten
+  czas), teraz cały plik naraz: 113 ms.
+
+### Polskie głosy (4.11.2026)
+
+DevilutionX czyta paczkę głosów `<język>.mpq` z katalogów MPQ. Polski dubbing (zawodowi aktorzy, WiAParker):
+`pl.mpq` z https://github.com/diasurgical/devilutionx-assets/releases (40 MB) – nagrania są w MP3, a
+dźwięk portu gra tylko WAV (dekodowanie MP3 kosztowałoby 15–20% CPU w rozmowie). `tools/voicepack/convert.sh`
+wyciąga z niej każde nagranie znane grze (`effects*.tsv`, `.mp3`), zamienia `ffmpeg` na WAV 8 bit mono
+22 050 Hz (format oryginału) i pakuje (mpqfs writer) pod nazwą `.wav`: 355 nagrań, 93 MB
+(`private/voice/pl-wav.mpq`, poza gitem). Na Amidze 2 w `WorkSD:Games/DiabloWarp/save/pl.mpq` (katalog
+zapisów jest na liście katalogów MPQ). Niemieckiego `de.mpq` w oficjalnych zasobach nie ma (404).
+Rozmowy (strumieniowane) nie grały od kroku 3 dźwięku: `SoundSample::IsLoaded` dla strumienia zwracało
+false (tylko ścieżka, bez próbek), a `effects.cpp` gra tylko wczytane. Poprawione; polskie rozmowy
+potwierdzone odsłuchem przez użytkownika (4.11.2026).
