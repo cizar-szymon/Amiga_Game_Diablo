@@ -71,9 +71,42 @@ CHANGES = [
      "#ifdef __amigaos__\n"
      "extern \"C\" void (*amiga_blit_map_fn)(unsigned char *dst, const unsigned char *src, unsigned n, const unsigned char *map);\n"
      "extern \"C\" void (*amiga_blit_blend_map_fn)(unsigned char *dst, const unsigned char *src, unsigned n, const unsigned char *map, const unsigned char *pal);\n"
+     "extern \"C\" void (*amiga_map_lines_fn)(unsigned char *dst, int step, const unsigned char *src, int n0, int dn, int count, const unsigned char *map, const unsigned char *pal);\n"
+     "extern \"C\" void (*amiga_blend_lines_fn)(unsigned char *dst, int step, const unsigned char *src, int n0, int dn, int count, const unsigned char *map, const unsigned char *pal);\n"
      "#endif\n"
      "\n"
      "namespace devilution {\n"),
+    # Whole unclipped tiles (square, triangle halves) with a light table in one
+    # call each instead of one call per line (16-32 calls of 2-32 pixels).
+    ("Source/engine/render/dun_render.cpp",
+     "DVL_ALWAYS_INLINE DVL_ATTRIBUTE_HOT void RenderSquareFull(uint8_t *DVL_RESTRICT dst, uint16_t dstPitch, const uint8_t *DVL_RESTRICT src, const uint8_t *DVL_RESTRICT tbl, const Lightmap &lightmap)\n{\n",
+     "DVL_ALWAYS_INLINE DVL_ATTRIBUTE_HOT void RenderSquareFull(uint8_t *DVL_RESTRICT dst, uint16_t dstPitch, const uint8_t *DVL_RESTRICT src, const uint8_t *DVL_RESTRICT tbl, const Lightmap &lightmap)\n{\n"
+     "#ifdef __amigaos__\n"
+     "\tif constexpr (Light == LightType::PartiallyLit) {\n"
+     "\t\t(Transparent ? amiga_blend_lines_fn : amiga_map_lines_fn)(dst, dstPitch, src, Width, 0, Height, tbl, &paletteTransparencyLookup[0][0]);\n"
+     "\t\treturn;\n"
+     "\t}\n"
+     "#endif\n"),
+    ("Source/engine/render/dun_render.cpp",
+     "DVL_ALWAYS_INLINE DVL_ATTRIBUTE_HOT void RenderTriangleLower(uint8_t *DVL_RESTRICT &dst, ptrdiff_t dstLineOffset, const uint8_t *DVL_RESTRICT &src, const uint8_t *DVL_RESTRICT tbl, const Lightmap *lightmap)\n{\n",
+     "DVL_ALWAYS_INLINE DVL_ATTRIBUTE_HOT void RenderTriangleLower(uint8_t *DVL_RESTRICT &dst, ptrdiff_t dstLineOffset, const uint8_t *DVL_RESTRICT &src, const uint8_t *DVL_RESTRICT tbl, const Lightmap *lightmap)\n{\n"
+     "#ifdef __amigaos__\n"
+     "\tif constexpr (Light == LightType::PartiallyLit) {\n"
+     "\t\t(Transparent ? amiga_blend_lines_fn : amiga_map_lines_fn)(dst, static_cast<int>(dstLineOffset), src, 2, 2, 16, tbl, &paletteTransparencyLookup[0][0]);\n"
+     "\t\tsrc += 272;\n"
+     "\t\tdst -= 16 * dstLineOffset;\n"
+     "\t\treturn;\n"
+     "\t}\n"
+     "#endif\n"),
+    ("Source/engine/render/dun_render.cpp",
+     "DVL_ALWAYS_INLINE DVL_ATTRIBUTE_HOT void RenderTriangleUpper(uint8_t *DVL_RESTRICT dst, ptrdiff_t dstLineOffset, const uint8_t *DVL_RESTRICT src, const uint8_t *DVL_RESTRICT tbl, const Lightmap *lightmap)\n{\n",
+     "DVL_ALWAYS_INLINE DVL_ATTRIBUTE_HOT void RenderTriangleUpper(uint8_t *DVL_RESTRICT dst, ptrdiff_t dstLineOffset, const uint8_t *DVL_RESTRICT src, const uint8_t *DVL_RESTRICT tbl, const Lightmap *lightmap)\n{\n"
+     "#ifdef __amigaos__\n"
+     "\tif constexpr (Light == LightType::PartiallyLit) {\n"
+     "\t\t(Transparent ? amiga_blend_lines_fn : amiga_map_lines_fn)(dst, static_cast<int>(dstLineOffset), src, 30, -2, 15, tbl, &paletteTransparencyLookup[0][0]);\n"
+     "\t\treturn;\n"
+     "\t}\n"
+     "#endif\n"),
     ("Source/engine/render/blit_impl.hpp",
      "inline DVL_NO_INLINE DVL_ATTRIBUTE_HOT void BlitPixelsWithMap(uint8_t *DVL_RESTRICT dst, const uint8_t *DVL_RESTRICT src, unsigned length, const uint8_t *DVL_RESTRICT colorMap)\n{\n\tDVL_ASSUME(length != 0);\n",
      "inline DVL_NO_INLINE DVL_ATTRIBUTE_HOT void BlitPixelsWithMap(uint8_t *DVL_RESTRICT dst, const uint8_t *DVL_RESTRICT src, unsigned length, const uint8_t *DVL_RESTRICT colorMap)\n{\n\tDVL_ASSUME(length != 0);\n"

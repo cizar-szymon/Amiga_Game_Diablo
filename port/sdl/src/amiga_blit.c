@@ -124,7 +124,141 @@ __asm__(
     "    move.b  0(a3,d3.l),(a0)+\n"
     "    dbf     d4,3b\n"
     "4:  movem.l (sp)+,d2-d6/a2-a3\n"
+    "    rts\n"
+    "\n"
+    /* amiga_map_lines(dst, step, src, n0, dn, count, map, pal):
+       whole unclipped tile in one call. Line i: width n0 + i*dn,
+       destination dst - i*step, source contiguous. */
+    "    .even\n"
+    "    .globl _amiga_map_lines_asm\n"
+    "_amiga_map_lines_asm:\n"
+    "    movem.l d2-d7/a2-a4,-(sp)\n"       /* 9 regs: args from 40(sp) */
+    "    move.l  40(sp),a3\n"               /* dst */
+    "    move.l  44(sp),a4\n"               /* step */
+    "    move.l  48(sp),a1\n"               /* src */
+    "    move.l  52(sp),d4\n"               /* width */
+    "    move.l  56(sp),d5\n"               /* dn */
+    "    move.l  60(sp),d6\n"               /* count */
+    "    move.l  64(sp),a2\n"               /* map */
+    "    moveq   #0,d2\n"
+    "    moveq   #0,d3\n"
+    "    tst.l   d6\n"
+    "    ble     9f\n"
+    "5:  move.l  a3,a0\n"
+    "    move.l  d4,d7\n"
+    "    lsr.l   #2,d7\n"
+    "    beq.s   2f\n"
+    "1:  move.l  (a1)+,d1\n"
+    "    rol.l   #8,d1\n"
+    "    move.b  d1,d2\n"
+    "    rol.l   #8,d1\n"
+    "    move.b  d1,d3\n"
+    "    move.b  0(a2,d2.l),d0\n"
+    "    rol.l   #8,d1\n"
+    "    lsl.w   #8,d0\n"
+    "    move.b  d1,d2\n"
+    "    move.b  0(a2,d3.l),d0\n"
+    "    rol.l   #8,d1\n"
+    "    swap    d0\n"
+    "    move.b  d1,d3\n"
+    "    move.b  0(a2,d2.l),d0\n"
+    "    lsl.w   #8,d0\n"
+    "    move.b  0(a2,d3.l),d0\n"
+    "    move.l  d0,(a0)+\n"
+    "    subq.l  #1,d7\n"
+    "    bne.s   1b\n"
+    "2:  move.l  d4,d1\n"
+    "    and.l   #3,d1\n"
+    "    beq.s   4f\n"
+    "    subq.w  #1,d1\n"
+    "3:  move.b  (a1)+,d2\n"
+    "    move.b  0(a2,d2.l),(a0)+\n"
+    "    dbf     d1,3b\n"
+    "4:  suba.l  a4,a3\n"
+    "    add.l   d5,d4\n"
+    "    subq.l  #1,d6\n"
+    "    bne     5b\n"
+    "9:  movem.l (sp)+,d2-d7/a2-a4\n"
+    "    rts\n"
+    "\n"
+    /* amiga_blend_lines(dst, step, src, n0, dn, count, map, pal): the same
+       lines with dst = pal[dst][map[src]]; the line count stays on the stack */
+    "    .even\n"
+    "    .globl _amiga_blend_lines_asm\n"
+    "_amiga_blend_lines_asm:\n"
+    "    movem.l d2-d7/a2-a5,-(sp)\n"       /* 10 regs: args from 44(sp) */
+    "    move.l  44(sp),a4\n"               /* dst */
+    "    move.l  48(sp),a5\n"               /* step */
+    "    move.l  52(sp),a1\n"               /* src */
+    "    move.l  56(sp),d4\n"               /* width */
+    "    move.l  60(sp),d5\n"               /* dn */
+    "    move.l  68(sp),a2\n"               /* map */
+    "    move.l  72(sp),a3\n"               /* pal */
+    "    moveq   #0,d2\n"
+    "    moveq   #0,d3\n"
+    "    tst.l   64(sp)\n"
+    "    ble     9f\n"
+    "5:  move.l  a4,a0\n"
+    "    move.l  d4,d7\n"
+    "    lsr.l   #2,d7\n"
+    "    beq.s   2f\n"
+    "1:  move.l  (a1)+,d1\n"
+    "    move.l  (a0),d6\n"
+    "    rol.l   #8,d1\n"
+    "    rol.l   #8,d6\n"
+    "    move.b  d1,d2\n"
+    "    move.b  d6,d3\n"
+    "    lsl.w   #8,d3\n"
+    "    move.b  0(a2,d2.l),d3\n"
+    "    rol.l   #8,d1\n"
+    "    rol.l   #8,d6\n"
+    "    move.b  0(a3,d3.l),d0\n"
+    "    move.b  d1,d2\n"
+    "    move.b  d6,d3\n"
+    "    lsl.w   #8,d3\n"
+    "    move.b  0(a2,d2.l),d3\n"
+    "    lsl.w   #8,d0\n"
+    "    rol.l   #8,d1\n"
+    "    rol.l   #8,d6\n"
+    "    move.b  0(a3,d3.l),d0\n"
+    "    move.b  d1,d2\n"
+    "    move.b  d6,d3\n"
+    "    lsl.w   #8,d3\n"
+    "    move.b  0(a2,d2.l),d3\n"
+    "    swap    d0\n"
+    "    rol.l   #8,d1\n"
+    "    rol.l   #8,d6\n"
+    "    move.b  0(a3,d3.l),d0\n"
+    "    move.b  d1,d2\n"
+    "    move.b  d6,d3\n"
+    "    lsl.w   #8,d3\n"
+    "    move.b  0(a2,d2.l),d3\n"
+    "    lsl.w   #8,d0\n"
+    "    move.b  0(a3,d3.l),d0\n"
+    "    move.l  d0,(a0)+\n"
+    "    subq.l  #1,d7\n"
+    "    bne.s   1b\n"
+    "2:  move.l  d4,d1\n"
+    "    and.l   #3,d1\n"
+    "    beq.s   4f\n"
+    "    subq.w  #1,d1\n"
+    "3:  move.b  (a1)+,d2\n"
+    "    move.b  (a0),d3\n"
+    "    lsl.w   #8,d3\n"
+    "    move.b  0(a2,d2.l),d3\n"
+    "    move.b  0(a3,d3.l),(a0)+\n"
+    "    dbf     d1,3b\n"
+    "4:  suba.l  a5,a4\n"
+    "    add.l   d5,d4\n"
+    "    subq.l  #1,64(sp)\n"
+    "    bne     5b\n"
+    "9:  movem.l (sp)+,d2-d7/a2-a5\n"
     "    rts\n");
+
+void amiga_map_lines_asm(unsigned char *dst, int step, const unsigned char *src, int n0, int dn, int count,
+                         const unsigned char *map, const unsigned char *pal);
+void amiga_blend_lines_asm(unsigned char *dst, int step, const unsigned char *src, int n0, int dn, int count,
+                           const unsigned char *map, const unsigned char *pal);
 
 /* ---- the entry points with the optional check ---- */
 static int verify = -1;
@@ -220,6 +354,105 @@ static void choose(void)
         amiga_blit_map_fn = amiga_blit_map_asm;
         amiga_blit_blend_map_fn = amiga_blit_blend_map_asm;
     }
+}
+
+/* whole tiles: C version (also the reference of the check) */
+static void lines_c(int blend, unsigned char *dst, int step, const unsigned char *src, int n, int dn, int count,
+                    const unsigned char *map, const unsigned char *pal)
+{
+    int i, k;
+    for (k = 0; k < count; k++, dst -= step, src += n, n += dn) {
+        for (i = 0; i < n; i++) dst[i] = blend ? pal[dst[i] * 256 + map[src[i]]] : map[src[i]];
+    }
+}
+
+static void map_lines_c(unsigned char *dst, int step, const unsigned char *src, int n0, int dn, int count,
+                        const unsigned char *map, const unsigned char *pal)
+{
+    lines_c(0, dst, step, src, n0, dn, count, map, pal);
+}
+
+static void blend_lines_c(unsigned char *dst, int step, const unsigned char *src, int n0, int dn, int count,
+                          const unsigned char *map, const unsigned char *pal)
+{
+    lines_c(1, dst, step, src, n0, dn, count, map, pal);
+}
+
+/* check: the lines are saved, drawn by C, saved as the expected result,
+   restored, drawn by asm and compared */
+static void lines_checked(int blend, unsigned char *dst, int step, const unsigned char *src, int n0, int dn,
+                          int count, const unsigned char *map, const unsigned char *pal)
+{
+    static unsigned char before[64 * 64], expect[64 * 64];
+    int k, n, o = 0, total = 0;
+    for (k = 0, n = n0; k < count; k++, n += dn) total += n;
+    if (count > 64 || total > (int)sizeof(before)) {
+        (blend ? amiga_blend_lines_asm : amiga_map_lines_asm)(dst, step, src, n0, dn, count, map, pal);
+        return;
+    }
+    for (k = 0, n = n0; k < count; k++, o += n, n += dn) memcpy(before + o, dst - k * step, n);
+    lines_c(blend, dst, step, src, n0, dn, count, map, pal);
+    for (k = 0, n = n0, o = 0; k < count; k++, o += n, n += dn) {
+        memcpy(expect + o, dst - k * step, n);
+        memcpy(dst - k * step, before + o, n);
+    }
+    (blend ? amiga_blend_lines_asm : amiga_map_lines_asm)(dst, step, src, n0, dn, count, map, pal);
+    v_calls++;
+    for (k = 0, n = n0, o = 0; k < count; k++, o += n, n += dn) {
+        if (memcmp(expect + o, dst - k * step, n) != 0) {
+            report(blend ? "blend lines" : "map lines", (unsigned)total);
+            break;
+        }
+    }
+}
+
+static void map_lines_checked(unsigned char *dst, int step, const unsigned char *src, int n0, int dn, int count,
+                              const unsigned char *map, const unsigned char *pal)
+{
+    lines_checked(0, dst, step, src, n0, dn, count, map, pal);
+}
+
+static void blend_lines_checked(unsigned char *dst, int step, const unsigned char *src, int n0, int dn,
+                                int count, const unsigned char *map, const unsigned char *pal)
+{
+    lines_checked(1, dst, step, src, n0, dn, count, map, pal);
+}
+
+typedef void (*lines_fn)(unsigned char *, int, const unsigned char *, int, int, int, const unsigned char *,
+                         const unsigned char *);
+static void map_lines_first(unsigned char *dst, int step, const unsigned char *src, int n0, int dn, int count,
+                            const unsigned char *map, const unsigned char *pal);
+static void blend_lines_first(unsigned char *dst, int step, const unsigned char *src, int n0, int dn, int count,
+                              const unsigned char *map, const unsigned char *pal);
+lines_fn amiga_map_lines_fn = map_lines_first;
+lines_fn amiga_blend_lines_fn = blend_lines_first;
+
+static void choose_lines(void)
+{
+    if (verify_on()) {
+        amiga_map_lines_fn = map_lines_checked;
+        amiga_blend_lines_fn = blend_lines_checked;
+    } else if (use_c) {
+        amiga_map_lines_fn = map_lines_c;
+        amiga_blend_lines_fn = blend_lines_c;
+    } else {
+        amiga_map_lines_fn = amiga_map_lines_asm;
+        amiga_blend_lines_fn = amiga_blend_lines_asm;
+    }
+}
+
+static void map_lines_first(unsigned char *dst, int step, const unsigned char *src, int n0, int dn, int count,
+                            const unsigned char *map, const unsigned char *pal)
+{
+    choose_lines();
+    amiga_map_lines_fn(dst, step, src, n0, dn, count, map, pal);
+}
+
+static void blend_lines_first(unsigned char *dst, int step, const unsigned char *src, int n0, int dn, int count,
+                              const unsigned char *map, const unsigned char *pal)
+{
+    choose_lines();
+    amiga_blend_lines_fn(dst, step, src, n0, dn, count, map, pal);
 }
 
 static void map_first(unsigned char *dst, const unsigned char *src, unsigned n, const unsigned char *map)
