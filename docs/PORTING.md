@@ -240,3 +240,29 @@ oprogramowania RTG Warpa.
   marsz 46–58, loch marsz 18–34. `memcpy` ma teraz 10,6% próbek, ale to już sama kopia (pamięć),
   nie wywołanie systemu. Kontrole obrazu: 0 różnic. (Wcześniej AmiAgent na Amidze 1 przestał odpowiadać
   o ~4:15, przed wgraniem tej wersji.)
+
+## Dźwięk – rozpoznanie i test miksera (4.11.2026)
+
+**Dane** (`diabdat.mpq`, nagłówki WAV wszystkich 824 plików z `effects.tsv` i listy muzyki):
+efekty ~270 plików, prawie wszystkie 8-bit mono 22 050 Hz, razem ~7 MB (ładowane do pamięci); mowa
+(`Stream`) ~530 plików, 8-bit (część 16-bit) 22 kHz, ~160 MB (czytane przy odtwarzaniu); muzyka lochów
+16-bit mono 22 kHz 11–15 MB na utwór, miasto 16-bit stereo 25 MB. Pojedyncze wyjątki: 11 025 Hz
+(`wallloop`) i 44 100 Hz (`snot03`).
+
+**Plan:** zamiast SDL_audiolib (wątki, resampler, float) własna warstwa pod `engine/sound.h`
+(`snd_play_snd` głośność + panorama, `sound_file_load`, `music_start`): Paula 2 kanały (lewy, prawy),
+22 030 Hz (okres 161), pierścień buforów w Chip RAM wypełniany przez osobny proces (wzór: Settlers
+`port/amiga_audio.c`); mikser programowy 8-bit; muzyka i mowa strumieniowo – główna pętla co klatkę
+dokłada dane z MPQ do bufora ~1–2 s (czytnik MPQ nie jest dla dwóch zadań). Opcje `SOUND=PAULA|AHI`,
+`NOSOUND`.
+
+**Test miksera** (`tools/amiga/mixbench.c`, Amiga 1, 68060/100 MHz, bez gry; czas na sekundę dźwięku):
+
+| Wersja | muzyka | + 2 głosy | + 4 | + 8 | + 16 |
+|---|---|---|---|---|---|
+| v1: sumy 16-bit L i P osobno, koniec próbki co próbkę, zapis bajtami do Chip RAM | 2,9% | 4,0% | 4,9% | 6,7% | 10,0% |
+| v1, zapis do Fast RAM (dla porównania) | 0,7% | 1,7% | 2,5% | 4,3% | 7,6% |
+| **v2:** L i P w jednym dodawaniu 32-bit (`acc = L·65536 + P`, tablica na głos), koniec próbki raz na odcinek, zapis do Chip RAM długimi słowami | **1,0%** | **1,7%** | **2,2%** | **3,0%** | **4,6%** |
+
+Zapis bajtami do Chip RAM kosztował sam ~2,2% (44 tys. zapisów/s). Typowo 4–8 głosów: **2–3% CPU**
+(w walce ~1–1,5 kl./s). Dalej możliwa pętla w asm.
