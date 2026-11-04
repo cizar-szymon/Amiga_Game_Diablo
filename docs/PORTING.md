@@ -281,3 +281,13 @@ Zapis bajtami do Chip RAM kosztował sam ~2,2% (44 tys. zapisów/s). Typowo 4–
   więc klawisze skryptu idą 4,3 s później, inaczej to inny moment walki). Odsłuch: do zrobienia.
 - Zapisy testowe z Amigi 1 (`WorkSD:Games/DiabloWarp/save`, z kopiami `.bak`) leżą na PC w
   `private/amiga1-DiabloWarp/save` (przeprowadzka na Amigę 2).
+
+### Dźwięk, krok 2: muzyka (4.11.2026, Amiga 2: A4000 + Warp 7060)
+
+- Muzyka strumieniowo: `MusicPump` (`engine/sound_amiga.cpp`) wołany z `SDL_PumpEvents` czyta WAV z MPQ
+  po kawałkach (do 8 KB) do pierścienia miksera (65 536 ramek, ~3 s, Fast RAM; jeden piszący – gra,
+  jeden czytający – proces dźwięku). 16 bit → starszy bajt, stereo (intro, miasto) zostaje stereo;
+  utwór w pętli. Głośność z opcji muzyki (wzór millibel jak w `soundsample.cpp`), `music_mute`.
+- Walka w lochu (`scene_dungeon_snd.sh`): z efektami 47,6 kl./s, **z muzyką 45,9**; miksowanie 1,7% CPU,
+  odczyt z karty SD ~2% (próbki „other tasks” 5 → 41 z 1109), 0 przerw, 0 niedopełnień pierścienia
+  w grze (1 przy samym starcie intro).

@@ -74,6 +74,7 @@ void msdl_stats_toggle(void)
 
 unsigned long msdl_counter[10];
 void amiga_snd_stats(unsigned long *ticks, unsigned long *buffers, unsigned long *gaps);
+unsigned long amiga_snd_stream_gaps(void);
 
 static void stats_frame(unsigned long t_start, unsigned long t_end)
 {
@@ -112,13 +113,14 @@ static void stats_frame(unsigned long t_start, unsigned long t_end)
         }
         {
             /* sound mixer (amiga_sound.c): share of the time, gaps */
-            static unsigned long s_ticks0, s_bufs0, s_gaps0;
-            unsigned long st, sb, sg;
+            static unsigned long s_ticks0, s_bufs0, s_gaps0, s_mgaps0;
+            unsigned long st, sb, sg, mg = amiga_snd_stream_gaps();
             amiga_snd_stats(&st, &sb, &sg);
             if (sb != s_bufs0)
-                msdl_logf(SDL_LOG_PRIORITY_INFO, "stats: sound mixing %lu.%lu%% CPU, %lu buffers, %lu gaps",
+                msdl_logf(SDL_LOG_PRIORITY_INFO, "stats: sound mixing %lu.%lu%% CPU, %lu buffers, %lu gaps, music short %lu",
                           (st - s_ticks0) * 100 / per_ms / ms, ((st - s_ticks0) * 1000 / per_ms / ms) % 10, sb - s_bufs0,
-                          sg - s_gaps0);
+                          sg - s_gaps0, mg - s_mgaps0);
+            s_mgaps0 = mg;
             s_ticks0 = st;
             s_bufs0 = sb;
             s_gaps0 = sg;

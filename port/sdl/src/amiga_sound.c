@@ -105,6 +105,49 @@ static void mix_voice(struct Voice *v)
     v->pos = p;
 }
 
+
+/* ---- stream (music): a ring of signed 8-bit frames (mono, or left/right
+   pairs) in fast RAM. The game's main loop writes (amiga_snd_stream_write,
+   from its event pump), the audio process reads; one writer, one reader:
+   wr only moves in the game, rd only in the mixer. ---- */
+#define RING 65536UL   /* frames, ~3 s */
+
+static signed char *ring;
+static volatile unsigned long ring_wr, ring_rd;
+static volatile int stream_on, stream_stereo;
+static long stab_l[256], stab_r[256];   /* (s*v/8) << 16 and s*v/8 */
+static volatile unsigned long stream_gaps;
+
+static void build_stream_tab(int v)
+{
+    int s;
+    for (s = -128; s < 128; s++) {
+        stab_l[(unsigned char)s] = (long)((s * v) >> 3) * 65536L;
+        stab_r[(unsigned char)s] = (s * v) >> 3;
+    }
+}
+
+static void mix_stream(void)
+{
+    unsigned long rd = ring_rd, avail = ring_wr - rd, n = avail < FRAMES ? avail : FRAMES, i;
+    long *a = acc;
+    if (n < FRAMES) stream_gaps++;
+    if (stream_stereo) {
+        const unsigned char *r = (const unsigned char *)ring;
+        for (i = 0; i < n; i++, rd++) {
+            unsigned long k = (rd & (RING - 1)) * 2;
+            a[i] = stab_l[r[k]] + stab_r[r[k + 1]];
+        }
+    } else {
+        const unsigned char *r = (const unsigned char *)ring;
+        for (i = 0; i < n; i++, rd++) {
+            unsigned char x = r[rd & (RING - 1)];
+            a[i] = stab_l[x] + stab_r[x];
+        }
+    }
+    ring_rd = rd;
+}
+
 static void render(int b)
 {
     ULONG *cl = chip[b][0], *cr = chip[b][1];
@@ -112,6 +155,7 @@ static void render(int b)
     int i, k;
     memset(acc, 0, sizeof(acc));
     ObtainSemaphore(&lock);
+    if (stream_on) mix_stream();
     for (k = 0; k < VOICES; k++)
         if (voices[k].active) mix_voice(&voices[k]);
     ReleaseSemaphore(&lock);
@@ -308,6 +352,7 @@ int amiga_snd_init(void)
 void amiga_snd_quit(void)
 {
     int b, c;
+    stream_on = 0;
     if (proc != NULL) {
         Signal(&proc->pr_Task, SIGBREAKF_CTRL_C);
         while (proc_state != 2) Wait(1UL << parent_sig);
@@ -402,6 +447,65 @@ void amiga_snd_volume(int handle, int vl, int vr)
     if (v != NULL) build_tab(v, vl, vr);
     ReleaseSemaphore(&lock);
 }
+
+
+/* Music stream. vol 0..64. */
+int amiga_snd_stream_start(int stereo, int vol)
+{
+    if (proc == NULL) return -1;
+    if (ring == NULL) {
+        ring = (signed char *)AllocVec(RING * 2, MEMF_ANY);
+        if (ring == NULL) return -1;
+    }
+    ObtainSemaphore(&lock);
+    stream_on = 0;
+    ring_wr = ring_rd = 0;
+    stream_stereo = stereo;
+    build_stream_tab(vol);
+    stream_on = 1;
+    ReleaseSemaphore(&lock);
+    return 0;
+}
+
+void amiga_snd_stream_stop(void)
+{
+    if (proc == NULL) return;
+    ObtainSemaphore(&lock);
+    stream_on = 0;
+    ReleaseSemaphore(&lock);
+}
+
+void amiga_snd_stream_volume(int vol)
+{
+    if (proc == NULL) return;
+    ObtainSemaphore(&lock);
+    build_stream_tab(vol);
+    ReleaseSemaphore(&lock);
+}
+
+/* Frames the ring can take now. */
+long amiga_snd_stream_space(void)
+{
+    if (!stream_on) return 0;
+    return (long)(RING - (ring_wr - ring_rd));
+}
+
+/* n frames (mono bytes, or left/right byte pairs), at most the space. */
+void amiga_snd_stream_write(const signed char *frames, long n)
+{
+    unsigned long wr = ring_wr, at = wr & (RING - 1), first = RING - at;
+    int fb = stream_stereo ? 2 : 1;
+    if (!stream_on || n <= 0) return;
+    if ((unsigned long)n < first) first = (unsigned long)n;
+    memcpy(ring + at * fb, frames, first * fb);
+    if ((unsigned long)n > first) memcpy(ring, frames + first * fb, ((unsigned long)n - first) * fb);
+    ring_wr = wr + (unsigned long)n;   /* after the data */
+}
+
+unsigned long amiga_snd_stream_gaps(void) { return stream_gaps; }
+
+/* The game's pump (engine/sound_amiga.cpp), called from the event loop. */
+void (*amiga_snd_pump_fn)(void);
 
 /* For the stats line: share of the time spent mixing (per mille), gaps. */
 void amiga_snd_stats(unsigned long *ticks, unsigned long *buffers, unsigned long *gaps)

@@ -397,10 +397,14 @@ static void script_step(void)
     }
 }
 
+extern void (*amiga_snd_pump_fn)(void);
+
 void SDL_PumpEvents(void)
 {
     struct IntuiMessage *m;
     SDL_Event e;
+    /* the music stream is topped up from the game's event loop (amiga_sound.c) */
+    if (amiga_snd_pump_fn != NULL) amiga_snd_pump_fn();
 
     msdl_prof_check_env();
     script_step();
