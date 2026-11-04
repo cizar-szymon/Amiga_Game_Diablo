@@ -9,7 +9,10 @@
 - **Natywny backend od razu:** własny podzbiór SDL2 dla Amigi (`port/sdl`, na bazie
   mini-SDL2 z `../Dune/port/sdl`), bez prawdziwej biblioteki SDL2.
 - **Tylko Amiga.** Upstream na PC służy tylko jako wzorzec.
-- Testy: **Amiga 1** (A1200 + Warp 1260, 192.168.5.115, domyślny `C:/amiga-dev/amiagent.cfg`;
+- Od 4.11.2026 (rano) testy na **Amidze 2** (A4000 + Warp 7060): `export AMIAGENT_CONFIG=C:/amiga-dev/amiagent-2.cfg`
+  przed skryptami z `tools/`; ten sam układ katalogów i to samo `WorkSD:Games/Diablo` (dane, tylko odczyt).
+  Zapisy testowe: `private/amiga1-DiabloWarp/save` (kopie z Amigi 1).
+- Testy (wcześniej): **Amiga 1** (A1200 + Warp 1260, 192.168.5.115, domyślny `C:/amiga-dev/amiagent.cfg`;
   3.11.2026 Amiga 2 niedostępna), katalog `WorkSD:Games/DiabloWarp`. Dane czytane z
   `WorkSD:Games/Diablo/diabdat.mpq` (`--data-dir`). **`WorkSD:Games/Diablo` to instalacja
   użytkownika (stary port, jego zapis `single_0.sv`) – niczego tam nie zapisywać.**

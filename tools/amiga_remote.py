@@ -2,7 +2,7 @@
 """Remote control of an Amiga running AmiAgent (amiagent/AmiAgent.c).
 
 Connection settings come from (later wins): the file C:/amiga-dev/amiagent.cfg
-(or --config), the environment (AMIAGENT_HOST, AMIAGENT_PORT, AMIAGENT_PASSWORD)
+(or --config, or AMIAGENT_CONFIG), the environment (AMIAGENT_HOST, AMIAGENT_PORT, AMIAGENT_PASSWORD)
 and the command line (--host, --port, --password). The config file has lines
 "host = 192.168.1.50", "port = 6800", "password = ...".
 
@@ -137,7 +137,7 @@ class Agent:
 
 def load_settings(args):
     cfg = {}
-    path = args.config or DEFAULT_CONFIG
+    path = args.config or os.environ.get("AMIAGENT_CONFIG") or DEFAULT_CONFIG
     if os.path.exists(path):
         for line in open(path, encoding="utf-8"):
             if "=" in line and not line.strip().startswith("#"):
