@@ -144,10 +144,11 @@ void RecordEdge(int x, int y, int w, int h, bool masked);
  */
 inline bool columnCapture = false;
 void CapturePrimitive(int x, int y, int w, int h, uint32_t k1, uint32_t k2, uint32_t k3, bool masked);
-/** true: the summary of tile (tx, ty) with this key was recorded (DrawCell not needed). */
-bool ColumnReplay(const Surface &out, int tx, int ty, uint32_t key, int targetX, int targetY);
+/** true: the summary of tile (tx, ty) with this key was recorded (DrawCell not needed).
+    kind 0: DrawCell, 1: DrawFloorTile. */
+bool ColumnReplay(int kind, const Surface &out, int tx, int ty, uint32_t key, int targetX, int targetY);
 void ColumnCaptureBegin(const Surface &out, int targetX, int targetY);
-void ColumnCaptureEnd(int tx, int ty, uint32_t key);
+void ColumnCaptureEnd(int kind, int tx, int ty, uint32_t key);
 
 inline void RecordAt(const Surface &out, int x, int y, int w, int h, uint32_t k1, uint32_t k2, uint32_t k3, bool masked)
 {

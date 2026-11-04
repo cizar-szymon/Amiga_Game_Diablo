@@ -578,11 +578,11 @@ CHANGES = [
      "\t\tconst bool transparency = TileHasAny(tilePosition, TileProperties::Transparent) && TransList[dTransVal[tilePosition.x][tilePosition.y]];\n"
      "\t\tconst uint32_t key = (static_cast<uint32_t>(dPiece[tilePosition.x][tilePosition.y]) << 16)\n"
      "\t\t    | (static_cast<uint32_t>(lightTableIndex & 0x7FFF) << 1) | (transparency ? 1U : 0U);\n"
-     "\t\tif (amiga_cells::ColumnReplay(out, tilePosition.x, tilePosition.y, key, targetBufferPosition.x, targetBufferPosition.y))\n"
+     "\t\tif (amiga_cells::ColumnReplay(0, out, tilePosition.x, tilePosition.y, key, targetBufferPosition.x, targetBufferPosition.y))\n"
      "\t\t\treturn;\n"
      "\t\tamiga_cells::ColumnCaptureBegin(out, targetBufferPosition.x, targetBufferPosition.y);\n"
      "\t\tDrawCellImpl(out, lightmap, tilePosition, targetBufferPosition, lightTableIndex);\n"
-     "\t\tamiga_cells::ColumnCaptureEnd(tilePosition.x, tilePosition.y, key);\n"
+     "\t\tamiga_cells::ColumnCaptureEnd(0, tilePosition.x, tilePosition.y, key);\n"
      "\t\treturn;\n"
      "\t}\n"
      "#endif\n"
@@ -590,6 +590,28 @@ CHANGES = [
      "}\n"
      "\n"
      "void DrawCellImpl(const Surface &out, const Lightmap lightmap, Point tilePosition, Point targetBufferPosition, int lightTableIndex)\n{\n\tconst uint16_t levelPieceId = dPiece[tilePosition.x][tilePosition.y];\n"),
+    ("Source/engine/render/scrollrt.cpp",
+     "void DrawFloorTile(const Surface &out, const Lightmap &lightmap, Point tilePosition, Point targetBufferPosition)\n{\n\tconst int lightTableIndex = dLight[tilePosition.x][tilePosition.y];\n",
+     "void DrawFloorTileImpl(const Surface &out, const Lightmap &lightmap, Point tilePosition, Point targetBufferPosition);\n"
+     "\n"
+     "void DrawFloorTile(const Surface &out, const Lightmap &lightmap, Point tilePosition, Point targetBufferPosition)\n"
+     "{\n"
+     "#ifdef __amigaos__\n"
+     "\tif (amiga_cells::mode == amiga_cells::Mode::Record && !*GetOptions().Graphics.perPixelLighting) {\n"
+     "\t\tconst uint32_t key = (static_cast<uint32_t>(dPiece[tilePosition.x][tilePosition.y]) << 16)\n"
+     "\t\t    | static_cast<uint32_t>(dLight[tilePosition.x][tilePosition.y] & 0xFFFF);\n"
+     "\t\tif (amiga_cells::ColumnReplay(1, out, tilePosition.x, tilePosition.y, key, targetBufferPosition.x, targetBufferPosition.y))\n"
+     "\t\t\treturn;\n"
+     "\t\tamiga_cells::ColumnCaptureBegin(out, targetBufferPosition.x, targetBufferPosition.y);\n"
+     "\t\tDrawFloorTileImpl(out, lightmap, tilePosition, targetBufferPosition);\n"
+     "\t\tamiga_cells::ColumnCaptureEnd(1, tilePosition.x, tilePosition.y, key);\n"
+     "\t\treturn;\n"
+     "\t}\n"
+     "#endif\n"
+     "\tDrawFloorTileImpl(out, lightmap, tilePosition, targetBufferPosition);\n"
+     "}\n"
+     "\n"
+     "void DrawFloorTileImpl(const Surface &out, const Lightmap &lightmap, Point tilePosition, Point targetBufferPosition)\n{\n\tconst int lightTableIndex = dLight[tilePosition.x][tilePosition.y];\n"),
     # Videos on the 8-bit screen: the game cannot scale indexed output and
     # shows them at their size (~320x160); here whole multiples (2x),
     # every source pixel doubled across and every row repeated.

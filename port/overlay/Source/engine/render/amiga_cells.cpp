@@ -511,7 +511,7 @@ struct ColumnEntry {
 	uint8_t masked;
 	uint8_t empty;
 };
-ColumnEntry columnCache[CacheTiles][CacheTiles];
+ColumnEntry columnCache[2][CacheTiles][CacheTiles]; // [0] DrawCell, [1] DrawFloorTile
 int capOX, capOY;
 uint32_t capHash;
 int capX0, capY0, capX1, capY1;
@@ -520,9 +520,10 @@ unsigned long stColumnHits, stColumnMisses;
 
 void ClearColumnCache()
 {
-	for (auto &row : columnCache)
-		for (ColumnEntry &e : row)
-			e.valid = 0;
+	for (auto &kind : columnCache)
+		for (auto &row : kind)
+			for (ColumnEntry &e : row)
+				e.valid = 0;
 }
 
 void RecordColumn(const ColumnEntry &e, int ox, int oy)
@@ -547,11 +548,11 @@ void CapturePrimitive(int x, int y, int w, int h, uint32_t k1, uint32_t k2, uint
 		capMasked = true;
 }
 
-bool ColumnReplay(const Surface &out, int tx, int ty, uint32_t key, int targetX, int targetY)
+bool ColumnReplay(int kind, const Surface &out, int tx, int ty, uint32_t key, int targetX, int targetY)
 {
 	if (tx < 0 || ty < 0 || tx >= CacheTiles || ty >= CacheTiles || Env(envNoColumn, "DIABLO_NOCOLUMN"))
 		return false;
-	const ColumnEntry &e = columnCache[tx][ty];
+	const ColumnEntry &e = columnCache[kind & 1][tx][ty];
 	if (!e.valid || e.key != key)
 		return false;
 	stColumnHits++;
@@ -570,7 +571,7 @@ void ColumnCaptureBegin(const Surface &out, int targetX, int targetY)
 	columnCapture = true;
 }
 
-void ColumnCaptureEnd(int tx, int ty, uint32_t key)
+void ColumnCaptureEnd(int kind, int tx, int ty, uint32_t key)
 {
 	columnCapture = false;
 	ColumnEntry e {};
@@ -585,7 +586,7 @@ void ColumnCaptureEnd(int tx, int ty, uint32_t key)
 	e.valid = 1;
 	stColumnMisses++;
 	if (tx >= 0 && ty >= 0 && tx < CacheTiles && ty < CacheTiles)
-		columnCache[tx][ty] = e;
+		columnCache[kind & 1][tx][ty] = e;
 	RecordColumn(e, capOX, capOY);
 }
 
