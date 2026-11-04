@@ -9,3 +9,4 @@
 /build/
 /PIC_ERR/
 /pic_err/
+__pycache__/
