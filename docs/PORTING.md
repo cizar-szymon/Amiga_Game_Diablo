@@ -236,5 +236,7 @@ oprogramowania RTG Warpa.
   było w pętli `CopyMem` (wiele krótkich kopii: wiersze płytek w buforze pomocniczym, częściowe kopie sceny,
   tekst). Test `tools/amiga/memcpytest.c` (długości 0–300 × przesunięcia 0–7 źródła i celu, strażniki):
   0 błędów (sprawdzone na Pi400/Amiberry; pierwsza wersja miała błąd w wyrównaniu i zawiesiła emulator –
-  test zrobił swoje). **Pomiar w grze czeka na Amigę 1** (AmiAgent przestał odpowiadać o ~4:15, przed
-  wgraniem tej wersji; host odpowiada na ping).
+  test zrobił swoje). Pomiar na Amidze 1 (po jej restarcie): walka 47,3 → **48,3** kl./s, Tristram postój 87,9,
+  marsz 46–58, loch marsz 18–34. `memcpy` ma teraz 10,6% próbek, ale to już sama kopia (pamięć),
+  nie wywołanie systemu. Kontrole obrazu: 0 różnic. (Wcześniej AmiAgent na Amidze 1 przestał odpowiadać
+  o ~4:15, przed wgraniem tej wersji.)
