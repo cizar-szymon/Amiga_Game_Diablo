@@ -20,6 +20,7 @@
 #ifdef __amigaos__
 
 #include <cstdint>
+#include <cstring>
 #include <functional>
 
 #include "engine/surface.hpp"
@@ -197,17 +198,22 @@ inline void InterceptTile(const Surface &out, int x, int y, int w, int h, uint32
 			continue;
 		uint8_t *sp = static_cast<uint8_t *>(s->pixels);
 		const int ox = ex0 - orx, oy = ey0 - ory; // in `out`
-		for (int yy = 0; yy < eh; yy++) {
-			const uint8_t *src = out.at(ox, oy + yy);
-			for (int xx = 0; xx < ew; xx++)
-				sp[yy * s->pitch + xx] = src[xx];
+		{
+			// rows with memcpy and the row addresses stepped by the pitch (the
+			// compiler multiplied for every byte before)
+			const int outPitch = out.pitch(), sPitch = s->pitch;
+			const uint8_t *src = out.at(ox, oy);
+			uint8_t *dst = sp;
+			for (int yy = 0; yy < eh; yy++, src += outPitch, dst += sPitch)
+				std::memcpy(dst, src, ew);
 		}
 		draw(Surface(s, SDL_Rect { 0, 0, ew, eh }), -ox, -oy);
-		for (int yy = y0; yy < y1; yy++) {
-			uint8_t *dst = out.at(x0 - orx, yy - ory);
-			const uint8_t *src = sp + (yy - ey0) * s->pitch + (x0 - ex0);
-			for (int xx = 0; xx < x1 - x0; xx++)
-				dst[xx] = src[xx];
+		{
+			const int outPitch = out.pitch(), sPitch = s->pitch, cw = x1 - x0;
+			uint8_t *dst = out.at(x0 - orx, y0 - ory);
+			const uint8_t *src = sp + (y0 - ey0) * sPitch + (x0 - ex0);
+			for (int yy = y0; yy < y1; yy++, src += sPitch, dst += outPitch)
+				std::memcpy(dst, src, cw);
 		}
 	}
 	mode = Mode::Render;
