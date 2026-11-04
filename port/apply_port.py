@@ -564,6 +564,32 @@ CHANGES = [
      "\t/** Warp port: plays once more on a voice of its own (the sound may already be playing). */\n"
      "\tbool PlayNew(int logSoundVolume, int logUserVolume, int logPan);\n"
      "#else\n\tstd::unique_ptr<Aulib::Stream> stream_;\n#endif\n"),
+    # Record pass, column cache (amiga_cells.hpp): DrawCell's primitives
+    # depend on the tile, its piece, light level and wall transparency only;
+    # with the same key the summary of the last frame is recorded instead.
+    ("Source/engine/render/scrollrt.cpp",
+     "void DrawCell(const Surface &out, const Lightmap lightmap, Point tilePosition, Point targetBufferPosition, int lightTableIndex)\n{\n\tconst uint16_t levelPieceId = dPiece[tilePosition.x][tilePosition.y];\n",
+     "void DrawCellImpl(const Surface &out, const Lightmap lightmap, Point tilePosition, Point targetBufferPosition, int lightTableIndex);\n"
+     "\n"
+     "void DrawCell(const Surface &out, const Lightmap lightmap, Point tilePosition, Point targetBufferPosition, int lightTableIndex)\n"
+     "{\n"
+     "#ifdef __amigaos__\n"
+     "\tif (amiga_cells::mode == amiga_cells::Mode::Record && !*GetOptions().Graphics.perPixelLighting) {\n"
+     "\t\tconst bool transparency = TileHasAny(tilePosition, TileProperties::Transparent) && TransList[dTransVal[tilePosition.x][tilePosition.y]];\n"
+     "\t\tconst uint32_t key = (static_cast<uint32_t>(dPiece[tilePosition.x][tilePosition.y]) << 16)\n"
+     "\t\t    | (static_cast<uint32_t>(lightTableIndex & 0x7FFF) << 1) | (transparency ? 1U : 0U);\n"
+     "\t\tif (amiga_cells::ColumnReplay(out, tilePosition.x, tilePosition.y, key, targetBufferPosition.x, targetBufferPosition.y))\n"
+     "\t\t\treturn;\n"
+     "\t\tamiga_cells::ColumnCaptureBegin(out, targetBufferPosition.x, targetBufferPosition.y);\n"
+     "\t\tDrawCellImpl(out, lightmap, tilePosition, targetBufferPosition, lightTableIndex);\n"
+     "\t\tamiga_cells::ColumnCaptureEnd(tilePosition.x, tilePosition.y, key);\n"
+     "\t\treturn;\n"
+     "\t}\n"
+     "#endif\n"
+     "\tDrawCellImpl(out, lightmap, tilePosition, targetBufferPosition, lightTableIndex);\n"
+     "}\n"
+     "\n"
+     "void DrawCellImpl(const Surface &out, const Lightmap lightmap, Point tilePosition, Point targetBufferPosition, int lightTableIndex)\n{\n\tconst uint16_t levelPieceId = dPiece[tilePosition.x][tilePosition.y];\n"),
     # Videos on the 8-bit screen: the game cannot scale indexed output and
     # shows them at their size (~320x160); here whole multiples (2x),
     # every source pixel doubled across and every row repeated.
