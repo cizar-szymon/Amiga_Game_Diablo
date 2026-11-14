@@ -1,7 +1,7 @@
 DiabloWarp - Diablo na Amigę z kartą Warp
 =========================================
 
-Wersja 0.47 (beta), 4 listopada 2026
+Wersja 0.48 (beta), 14 listopada 2026
 
 Diablo (Blizzard, 1996) na Amidze: DevilutionX, otwarty silnik Diablo,
 przeniesiony na AmigaOS 3 i dostrojony do kart przyspieszających Warp.
@@ -28,10 +28,14 @@ Instalacja
 ----------
 
 1. Rozpakuj archiwum, np.:
-      UnZip DiabloWarp-0.47.zip -d Work:Games
+      UnZip DiabloWarp-0.48.zip -d Work:Games
 2. Skopiuj diabdat.mpq z płyty Diablo albo wersji GOG do szuflady
    DiabloWarp/data. Danych gry nie ma w paczce.
 3. Uruchom grę ikoną devilutionx.
+
+Diablo: Hellfire (dodatek, opcjonalnie): skopiuj hellfire.mpq, hfmonk.mpq,
+hfmusic.mpq i hfvoice.mpq (np. z wersji GOG) do DiabloWarp/data. Potem ikona
+Hellfire uruchamia Hellfire, a ikona devilutionx zwykłe Diablo.
 
 Zapisy i ustawienia są w DiabloWarp/save.
 
@@ -86,6 +90,10 @@ Shellu, np.: devilutionx LANGUAGE=de):
     SAVEDIR=katalog    zapisy i diablo.ini (domyślnie PROGDIR:save)
     LANGUAGE=xx        język: pl, en, de, ...
     SHOWFPS=YES|NO     licznik klatek włączony lub wyłączony
+    GAME=DIABLO        zwykłe Diablo (ikona devilutionx)
+    GAME=HELLFIRE      Diablo: Hellfire (ikona Hellfire; pliki hellfire.mpq,
+                       hfmonk.mpq, hfmusic.mpq, hfvoice.mpq w katalogu data)
+                       bez GAME: gra pyta przy starcie albo pamięta wybór
     SKIPINTRO          bez filmów na starcie
     NOSOUND            bez dźwięku
 Tool Types w nawiasach, jak (SKIPINTRO), są wyłączone: usuń nawiasy, żeby
@@ -118,7 +126,8 @@ Czego nie ma w tej wersji
 -------------------------
 
 - gry wieloosobowej i sieciowej
-- Diablo: Hellfire nie jest sprawdzone
+- Diablo: Hellfire jest sprawdzone tylko w menu i przy wyborze postaci
+  (Mnich); rozgrywka w Ulu i Krypcie jeszcze nie
 
 
 Autorzy i licencja

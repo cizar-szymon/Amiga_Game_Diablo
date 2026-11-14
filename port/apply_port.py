@@ -767,6 +767,27 @@ CHANGES = [
      "\t\t\tconst int w = static_cast<int>(SVidWidth), h = static_cast<int>(SVidHeight);\n"
      "\t\t\tconst int ox = (outputSurface->w - w * f) / 2, oy = (outputSurface->h - h * f) / 2;\n"
      "\t\t\tconst SDL_Surface *src = SVidSurface.get();\n"
+     "\t\t\tconst int dpitch = outputSurface->pitch;\n"
+     "\t\t\tif (f == 2 && (w & 3) == 0 && (ox & 3) == 0 && (dpitch & 3) == 0 && (src->pitch & 3) == 0) {\n"
+     "\t\t\t\t// 2x by long words (big endian): 4 source pixels -> 2 longs, written to both rows\n"
+     "\t\t\t\tstatic uint16_t dbl[256];\n"
+     "\t\t\t\tif (dbl[1] == 0)\n"
+     "\t\t\t\t\tfor (int i = 0; i < 256; i++) dbl[i] = static_cast<uint16_t>(i * 0x0101);\n"
+     "\t\t\t\tfor (int y = 0; y < h; y++) {\n"
+     "\t\t\t\t\tconst uint32_t *s = reinterpret_cast<const uint32_t *>(static_cast<const uint8_t *>(src->pixels) + y * src->pitch);\n"
+     "\t\t\t\t\tuint32_t *d0 = reinterpret_cast<uint32_t *>(static_cast<uint8_t *>(outputSurface->pixels) + (oy + y * 2) * dpitch + ox);\n"
+     "\t\t\t\t\tuint32_t *d1 = reinterpret_cast<uint32_t *>(reinterpret_cast<uint8_t *>(d0) + dpitch);\n"
+     "\t\t\t\t\tfor (int x = w >> 2; x != 0; x--) {\n"
+     "\t\t\t\t\t\tconst uint32_t v = *s++;\n"
+     "\t\t\t\t\t\tconst uint32_t a = (static_cast<uint32_t>(dbl[v >> 24]) << 16) | dbl[(v >> 16) & 0xFF];\n"
+     "\t\t\t\t\t\tconst uint32_t b = (static_cast<uint32_t>(dbl[(v >> 8) & 0xFF]) << 16) | dbl[v & 0xFF];\n"
+     "\t\t\t\t\t\td0[0] = a; d0[1] = b; d0 += 2;\n"
+     "\t\t\t\t\t\td1[0] = a; d1[1] = b; d1 += 2;\n"
+     "\t\t\t\t\t}\n"
+     "\t\t\t\t}\n"
+     "\t\t\t\tRenderPresent();\n"
+     "\t\t\t\treturn true;\n"
+     "\t\t\t}\n"
      "\t\t\tfor (int y = 0; y < h; y++) {\n"
      "\t\t\t\tconst uint8_t *s = static_cast<const uint8_t *>(src->pixels) + y * src->pitch;\n"
      "\t\t\t\tuint8_t *d = static_cast<uint8_t *>(outputSurface->pixels) + (oy + y * f) * outputSurface->pitch + ox;\n"
@@ -876,6 +897,220 @@ CHANGES = [
     ("Source/options.cpp",
      "#if (defined(TARGET_OS_IPHONE) && TARGET_OS_IPHONE == 1) || __DJGPP__\n\treturn false;",
      "#if (defined(TARGET_OS_IPHONE) && TARGET_OS_IPHONE == 1) || __DJGPP__ || defined(__amigaos__)\n\treturn false;"),
+    # Loose mods (mods/hf = Hellfire) next to the program: upstream looks
+    # only in the save and data directories, while the release keeps the
+    # game data in PROGDIR:data and mods/ beside the program; without this
+    # Hellfire never switches on (14.11.2026).
+    ("Source/engine/assets.cpp",
+     "\t\ttargetPath = StrCat(paths::BasePath(), \"mods\" DIRECTORY_SEPARATOR_STR, modname, DIRECTORY_SEPARATOR_STR);\n"
+     "\t\tif (DirectoryExists(targetPath)) {\n"
+     "\t\t\tOverridePaths.emplace_back(targetPath);\n"
+     "#ifndef UNPACKED_MPQS\n"
+     "\t\t\thasLooseOverride[i] = true;\n"
+     "#endif\n"
+     "\t\t}\n",
+     "\t\ttargetPath = StrCat(paths::BasePath(), \"mods\" DIRECTORY_SEPARATOR_STR, modname, DIRECTORY_SEPARATOR_STR);\n"
+     "\t\tif (DirectoryExists(targetPath)) {\n"
+     "\t\t\tOverridePaths.emplace_back(targetPath);\n"
+     "#ifndef UNPACKED_MPQS\n"
+     "\t\t\thasLooseOverride[i] = true;\n"
+     "#endif\n"
+     "\t\t}\n"
+     "#if defined(__amigaos__) && !defined(UNPACKED_MPQS)\n"
+     "\t\ttargetPath = StrCat(\"PROGDIR:mods/\", modname, \"/\");\n"
+     "\t\tif (!hasLooseOverride[i] && DirectoryExists(targetPath)) {\n"
+     "\t\t\tOverridePaths.emplace_back(targetPath);\n"
+     "\t\t\thasLooseOverride[i] = true;\n"
+     "\t\t}\n"
+     "#endif\n"),
+    # Videos: decoded / shown frames and the decoding time, in the log at
+    # the end of each video (the Hellfire intro showed two frames, 14.11.2026).
+    ("Source/storm/storm_svid.cpp",
+     "bool SVidLoadNextFrame()\n{\n",
+     "#ifdef __amigaos__\n"
+     "uint32_t AmigaSVidDecoded, AmigaSVidShown, AmigaSVidDecodeMs, AmigaSVidStartMs, AmigaSVidSum;\n"
+     "constexpr bool AmigaSVidNoSkip = true;\n"
+     "} // namespace\n"
+     "} // namespace devilution\n"
+     "extern \"C\" {\n"
+     "int amiga_snd_stream_start(int slot, int stereo, int vl, int vr);\n"
+     "void amiga_snd_stream_end(int slot);\n"
+     "void amiga_snd_stream_prime(int slot, long frames);\n"
+     "long amiga_snd_stream_space(int slot);\n"
+     "void amiga_snd_stream_write(int slot, const signed char *frames, long n);\n"
+     "}\n"
+     "namespace devilution {\n"
+     "namespace {\n"
+     "// Video sound on the Amiga (the build has NOSOUND, no SDL_audiolib): the\n"
+     "// decoded audio of every frame goes to stream 2 of the Paula mixer\n"
+     "// (port/sdl/src/amiga_sound.c) as signed 8-bit, 22050 Hz, mono or stereo.\n"
+     "constexpr int AmigaSVidSlot = 2;\n"
+     "bool AmigaSVidAudioOn;\n"
+     "uint32_t AmigaSVidBytes, AmigaSVidChannels, AmigaSVidStep, AmigaSVidFrac, AmigaSVidOutMax, AmigaSVidLost, AmigaSVidSkipped;\n"
+     "std::unique_ptr<int16_t[]> AmigaSVidIn;\n"
+     "std::unique_ptr<signed char[]> AmigaSVidOut;\n"
+     "\n"
+     "void AmigaSVidAudioBegin(bool enable)\n"
+     "{\n"
+     "\tAmigaSVidAudioOn = false;\n"
+     "\tAmigaSVidLost = 0;\n"
+     "\tif (!enable)\n"
+     "\t\treturn;\n"
+     "\tconst auto info = Smacker_GetAudioTrackDetails(SVidHandle, 0);\n"
+     "\tLogVerbose(\"video sound: {} bit, {} channels, {} Hz\", info.bitsPerSample, info.nChannels, info.sampleRate);\n"
+     "\tif ((info.bitsPerSample != 8 && info.bitsPerSample != 16) || info.nChannels < 1 || info.nChannels > 2\n"
+     "\t    || info.sampleRate < 4000 || info.idealBufferSize == 0)\n"
+     "\t\treturn;\n"
+     "\tAmigaSVidBytes = info.bitsPerSample / 8;\n"
+     "\tAmigaSVidChannels = info.nChannels;\n"
+     "\tAmigaSVidStep = (info.sampleRate << 16) / 22050; // source frames per output frame, 16.16\n"
+     "\tAmigaSVidFrac = 0;\n"
+     "\tconst uint32_t inFrames = info.idealBufferSize / (AmigaSVidBytes * AmigaSVidChannels);\n"
+     "\tAmigaSVidOutMax = static_cast<uint32_t>((static_cast<uint64_t>(inFrames) << 16) / AmigaSVidStep) + 2;\n"
+     "\tAmigaSVidIn.reset(new int16_t[info.idealBufferSize / 2 + 2]);\n"
+     "\tAmigaSVidOut.reset(new signed char[AmigaSVidOutMax * AmigaSVidChannels]);\n"
+     "\t// volume: the sound effects' setting, linear as upstream's GetVolume\n"
+     "\tconst int vol = std::clamp((*GetOptions().Audio.soundVolume - VOLUME_MIN) * 64 / -VOLUME_MIN, 0, 64);\n"
+     "\tif (amiga_snd_stream_start(AmigaSVidSlot, AmigaSVidChannels == 2, vol, vol) != 0)\n"
+     "\t\treturn;\n"
+     "\t// the sound comes just in time with each frame: ~190 ms reserve against gaps\n"
+     "\tamiga_snd_stream_prime(AmigaSVidSlot, 4096);\n"
+     "\tAmigaSVidAudioOn = true;\n"
+     "}\n"
+     "\n"
+     "void AmigaSVidAudioPush()\n"
+     "{\n"
+     "\tif (!AmigaSVidAudioOn)\n"
+     "\t\treturn;\n"
+     "\tconst uint32_t len = Smacker_GetAudioData(SVidHandle, 0, AmigaSVidIn.get());\n"
+     "\tconst uint32_t ch = AmigaSVidChannels, n = len / (AmigaSVidBytes * ch);\n"
+     "\tif (n == 0)\n"
+     "\t\treturn;\n"
+     "\tconst int16_t *in16 = AmigaSVidIn.get();\n"
+     "\tconst uint8_t *in8 = reinterpret_cast<const uint8_t *>(AmigaSVidIn.get());\n"
+     "\tsigned char *out = AmigaSVidOut.get();\n"
+     "\tuint32_t pos = AmigaSVidFrac, frames = 0;\n"
+     "\tconst uint32_t end = n << 16;\n"
+     "\twhile (pos < end && frames < AmigaSVidOutMax) {\n"
+     "\t\tconst uint32_t k = (pos >> 16) * ch;\n"
+     "\t\tfor (uint32_t c = 0; c < ch; c++)\n"
+     "\t\t\t*out++ = AmigaSVidBytes == 2 ? static_cast<signed char>(in16[k + c] >> 8)\n"
+     "\t\t\t                            : static_cast<signed char>(in8[k + c] ^ 0x80); // 8 bit: unsigned\n"
+     "\t\tframes++;\n"
+     "\t\tpos += AmigaSVidStep;\n"
+     "\t}\n"
+     "\tAmigaSVidFrac = pos >= end ? pos - end : 0;\n"
+     "\tconst long space = amiga_snd_stream_space(AmigaSVidSlot);\n"
+     "\tconst long put = std::min<long>(space, frames);\n"
+     "\tAmigaSVidLost += frames - put;\n"
+     "\tamiga_snd_stream_write(AmigaSVidSlot, AmigaSVidOut.get(), put);\n"
+     "}\n"
+     "\n"
+     "// A frame late by two frames is not shown (its sound is already out; the\n"
+     "// sound has ~190 ms reserve, so a smaller delay is caught up by the next\n"
+     "// frames), at most 2 in a row: the picture keeps up with the sound and\n"
+     "// never stays black.\n"
+     "int AmigaSVidSkipRow;\n"
+     "bool AmigaSVidSkip()\n"
+     "{\n"
+     "\tif (GetTicksSmk() < SVidFrameEnd + 2 * SVidFrameLength || AmigaSVidSkipRow >= 2) {\n"
+     "\t\tAmigaSVidSkipRow = 0;\n"
+     "\t\treturn false;\n"
+     "\t}\n"
+     "\tAmigaSVidSkipRow++;\n"
+     "\tAmigaSVidSkipped++;\n"
+     "\treturn true;\n"
+     "}\n"
+     "\n"
+     "void AmigaSVidAudioEnd()\n"
+     "{\n"
+     "\tif (AmigaSVidAudioOn)\n"
+     "\t\tamiga_snd_stream_end(AmigaSVidSlot); // the rest in the ring plays out\n"
+     "\tAmigaSVidAudioOn = false;\n"
+     "\tAmigaSVidIn = nullptr;\n"
+     "\tAmigaSVidOut = nullptr;\n"
+     "}\n"
+     "#else\n"
+     "constexpr bool AmigaSVidNoSkip = false;\n"
+     "#endif\n"
+     "bool SVidLoadNextFrame()\n{\n"),
+    ("Source/storm/storm_svid.cpp",
+     "\tSVidFrameEnd += SVidFrameLength;\n\n\tSmacker_GetNextFrame(SVidHandle);\n\tSmacker_GetFrame(SVidHandle, SVidFrameBuffer.get());\n",
+     "\tSVidFrameEnd += SVidFrameLength;\n\n"
+     "#ifdef __amigaos__\n"
+     "\tconst uint32_t amigaT0 = SDL_GetTicks();\n"
+     "#endif\n"
+     "\tSmacker_GetNextFrame(SVidHandle);\n\tSmacker_GetFrame(SVidHandle, SVidFrameBuffer.get());\n"
+     "#ifdef __amigaos__\n"
+     "\tAmigaSVidDecodeMs += SDL_GetTicks() - amigaT0;\n"
+     "\tAmigaSVidDecoded++;\n"
+     "\t{ // checksum of every decoded frame: the decoder's output is compared between builds\n"
+     "\t\tconst uint32_t *p = reinterpret_cast<const uint32_t *>(SVidFrameBuffer.get());\n"
+     "\t\tfor (uint32_t k = SVidWidth * SVidHeight / 4; k != 0; k--)\n"
+     "\t\t\tAmigaSVidSum = (AmigaSVidSum << 5) + (AmigaSVidSum >> 27) + *p++;\n"
+     "\t}\n"
+     "#endif\n"),
+    # The Smacker decoder from port/overlay/3rdParty/libsmackerdec (the
+    # same library with a fast bit reader for the 68060) instead of the
+    # download.
+    ("3rdParty/libsmackerdec/CMakeLists.txt",
+     "FetchContent_MakeAvailable_ExcludeFromAll(libsmackerdec)\n",
+     "if(EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/src/BitReader.cpp)\n"
+     "  set(libsmackerdec_SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR})\n"
+     "else()\n"
+     "  FetchContent_MakeAvailable_ExcludeFromAll(libsmackerdec)\n"
+     "endif()\n"),
+    # Late frames are shown anyway: every frame has to be decoded (Smacker
+    # frames are changes to the one before), so skipping the blit saves only
+    # a few ms; with the Hellfire logo (97 ms decoding per 66 ms frame on a
+    # 68060) upstream showed 1 frame of 128 and dropped the sound of the rest.
+    ("Source/storm/storm_svid.cpp",
+     "\tif (GetTicksSmk() >= SVidFrameEnd) {\n"
+     "#if defined(USE_SDL3) && !defined(NOSOUND)\n",
+     "#ifdef __amigaos__\n"
+     "\tAmigaSVidAudioPush(); // always: the sound is the clock\n"
+     "\tif (AmigaSVidSkip()) {\n"
+     "#else\n"
+     "\tif (GetTicksSmk() >= SVidFrameEnd) {\n"
+     "#endif\n"
+     "#if defined(USE_SDL3) && !defined(NOSOUND)\n"),
+    ("Source/storm/storm_svid.cpp",
+     "\tif (GetTicksSmk() >= SVidFrameEnd) {\n"
+     "\t\treturn SVidLoadNextFrame(); // Skip video if the system is to slow\n",
+     "\tif (!AmigaSVidNoSkip && GetTicksSmk() >= SVidFrameEnd) {\n"
+     "\t\treturn SVidLoadNextFrame(); // Skip video if the system is to slow\n"),
+    ("Source/storm/storm_svid.cpp",
+     "\tif (!BlitFrame())\n\t\treturn false;\n",
+     "#ifdef __amigaos__\n"
+     "\tAmigaSVidShown++;\n"
+     "#endif\n"
+     "\tif (!BlitFrame())\n\t\treturn false;\n"),
+    ("Source/storm/storm_svid.cpp",
+     "\tSVidFrameEnd = GetTicksSmk() + SVidFrameLength;\n",
+     "\tSVidFrameEnd = GetTicksSmk() + SVidFrameLength;\n"
+     "#ifdef __amigaos__\n"
+     "\tAmigaSVidDecoded = AmigaSVidShown = AmigaSVidDecodeMs = AmigaSVidSum = AmigaSVidSkipped = 0;\n"
+     "\tAmigaSVidSkipRow = 0;\n"
+     "\tAmigaSVidStartMs = SDL_GetTicks();\n"
+     "#endif\n"),
+    ("Source/storm/storm_svid.cpp",
+     "\tif (!SVidHandle.isValid) {\n\t\treturn false;\n\t}\n\n#ifndef NOSOUND\n",
+     "\tif (!SVidHandle.isValid) {\n\t\treturn false;\n\t}\n\n"
+     "#ifdef __amigaos__\n"
+     "\tAmigaSVidAudioBegin((flags & 0x1000000) == 0);\n"
+     "#endif\n"
+     "#ifndef NOSOUND\n"),
+    ("Source/storm/storm_svid.cpp",
+     "void SVidPlayEnd()\n{\n",
+     "void SVidPlayEnd()\n{\n"
+     "#ifdef __amigaos__\n"
+     "\tAmigaSVidAudioEnd();\n"
+     "\tLogInfo(\"video sound: {} frames lost (ring full), {} late frames not shown\", AmigaSVidLost, AmigaSVidSkipped);\n"
+     "\tLogInfo(\"video {}x{}, frame {} ms: {} frames decoded ({} ms each), {} shown, {} ms, sum {:08x}\",\n"
+     "\t    SVidWidth, SVidHeight, SVidFrameLength / 100, AmigaSVidDecoded,\n"
+     "\t    AmigaSVidDecoded != 0 ? AmigaSVidDecodeMs / AmigaSVidDecoded : 0, AmigaSVidShown,\n"
+     "\t    SDL_GetTicks() - AmigaSVidStartMs, AmigaSVidSum);\n"
+     "#endif\n"),
 ]
 
 

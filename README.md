@@ -15,7 +15,10 @@ well, but slower.
   pickup, monster health bars and more, in the game settings)
 - 640x480 on an 8-bit Picasso96 screen; on a Warp 7060 at 100 MHz (frames per second):
   Tristram standing 91, walking 47-66; dungeon walking 17-26, fighting 46
-- sound on Paula: effects, music and speech (stereo, 22 kHz); videos twice the size
+- **Diablo: Hellfire** (the Monk, the Hive and the Crypt) with the expansion's own data files,
+  started from its own Hellfire icon; so far tested in the menus and the class choice
+- sound on Paula: effects, music, speech and the videos' sound (stereo, 22 kHz); videos twice
+  the size
 - English, Polish and German (and the other DevilutionX languages); Polish speech with the
   DevilutionX voice pack, converted for this port
 - "Light Steps" option for faster walking in the dungeon
@@ -38,7 +41,7 @@ The ready-to-unpack release is in [`releases/amiga`](releases/amiga):
 
 **Settings:** language, frame counter, Light Steps, volume and the rest are chosen in the game
 and kept in `save/diablo.ini`. Tool Types of the devilutionx icon (the same words work as Shell
-arguments): `DATADIR=`, `SAVEDIR=`, `LANGUAGE=pl|en|de|...`, `SHOWFPS=YES|NO`, `SKIPINTRO`,
+arguments): `DATADIR=`, `SAVEDIR=`, `LANGUAGE=pl|en|de|...`, `SHOWFPS=YES|NO`, `GAME=HELLFIRE|DIABLO`, `SKIPINTRO`,
 `NOSOUND`.
 
 ### The game data is not included
@@ -46,6 +49,10 @@ arguments): `DATADIR=`, `SAVEDIR=`, `LANGUAGE=pl|en|de|...`, `SHOWFPS=YES|NO`, `
 The graphics, sounds, music and levels are in `diabdat.mpq` of the original **Diablo**
 (c) Blizzard Entertainment. It is not in this repository and we do not link to downloads: copy
 it from **your own copy** (the CD or the GOG version) into `DiabloWarp/data`.
+
+For **Diablo: Hellfire** copy `hellfire.mpq`, `hfmonk.mpq`, `hfmusic.mpq` and `hfvoice.mpq` from
+your own Hellfire (for example the GOG version) into `DiabloWarp/data` too, then start the game
+from the Hellfire icon.
 
 ### Polish speech
 

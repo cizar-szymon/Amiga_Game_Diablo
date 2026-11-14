@@ -7,6 +7,18 @@ description of what happened and the version number (bottom left of the main
 menu, or "Version devilutionx" in the Shell).
 
 
+0.48 (beta) - 14 November 2026
+------------------------------
+
+- Diablo: Hellfire: with hellfire.mpq, hfmonk.mpq, hfmusic.mpq and
+  hfvoice.mpq in DiabloWarp/data the game runs as Hellfire (the Monk, the
+  new dungeons); a Hellfire icon of its own, the devilutionx icon starts
+  plain Diablo
+- Tool Type GAME=DIABLO|HELLFIRE
+- Videos with sound; a faster video decoder (the Hellfire intro in its
+  own time on a 68060)
+
+
 0.47 (beta) - 4 November 2026
 -----------------------------
 

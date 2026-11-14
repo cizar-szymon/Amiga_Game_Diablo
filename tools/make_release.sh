@@ -26,8 +26,12 @@ MSYS_NO_PATHCONV=1 docker run --rm -v diablo-build:/work:ro -v "$(pwd -W 2>/dev/
   amigadev/crosstools:m68k-amigaos-gcc10 sh -c 'cp -r /work/build/assets /work/build/mods /out/'
 # Tool Types: the data and saves inside the drawer; the rest as hints in brackets
 python tools/make_icon.py "$P/devilutionx.info" --frame tools/icon/diablo_logo.png --crop 0 0 104 40 --lit-frame \
-  --stack 1000000 --pos 12 8 --tooltypes "DATADIR=PROGDIR:data" "SAVEDIR=PROGDIR:save" "(LANGUAGE=pl)" "(LANGUAGE=de)" \
-  "(SHOWFPS=YES)" "(SKIPINTRO)" "(NOSOUND)" >/dev/null 2>&1
+  --stack 1000000 --pos 12 8 --tooltypes "DATADIR=PROGDIR:data" "SAVEDIR=PROGDIR:save" "GAME=DIABLO" "(LANGUAGE=pl)" \
+  "(LANGUAGE=de)" "(SHOWFPS=YES)" "(SKIPINTRO)" "(NOSOUND)" >/dev/null 2>&1
+# the second icon: Diablo: Hellfire, a project started by devilutionx (amiga_wb.c reads its GAME=)
+printf 'Double-click the Hellfire icon: DiabloWarp in Diablo: Hellfire mode.\nIkona Hellfire: DiabloWarp w trybie Diablo: Hellfire.\n' > "$P/Hellfire"
+python tools/make_icon.py "$P/Hellfire.info" --frame tools/icon/hellfire_logo.png --crop 0 0 120 40 --lit-frame \
+  --stack 1000000 --pos 12 70 --project devilutionx --tooltypes "GAME=HELLFIRE" >/dev/null 2>&1
 cp tools/icon/warp-drawer.info "$R/DiabloWarp.info"	# the game drawer: the WARP logo (tools/icon/warp-drawer.info, ../WARP-drawer.info)
 # texts: Polish without diacritics (every Amiga shows it, as in the other ports)
 for f in DiabloWarp.txt DiabloWarp_en.txt DiabloWarp_release.txt DiabloWarp_release_en.txt; do

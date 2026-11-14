@@ -304,6 +304,52 @@ jeden licznik wersji dla wszystkich palet i nowa wersja przy każdym `SDL_SetSur
 kilkunastu sekund intro mają dobre kolory. Filmy na ekranie 8-bit powiększone 2× (`storm_svid.cpp`: każdy piksel podwojony w poziomie, wiersz
 powtórzony), na środku: intro 640×308 na całą szerokość.
 
+### Diablo: Hellfire i szybszy dekoder filmów (14.11.2026, Amiga 1: A1200 + Warp 1260, 68060)
+
+- Hellfire: pliki `hellfire.mpq`, `hfmonk.mpq`, `hfmusic.mpq`, `hfvoice.mpq` w `data/`. Mod `mods/hf`
+  był szukany tylko w `save/` i `data/` (upstream `LoadModArchives`), w paczce leży obok programu –
+  łatka: też `PROGDIR:mods/<mod>/`. Dwie ikony: `devilutionx` (`GAME=DIABLO`) i projekt `Hellfire`
+  (Default Tool `devilutionx`, `GAME=HELLFIRE`); `amiga_wb.c` czyta Tool Types programu i ikony
+  projektu (ostatnie `GAME=` wygrywa). Bez wymuszenia trybu `--hellfire` zostawia `hf=1` w `diablo.ini`.
+- Filmy: log `video WxH, frame N ms: decoded (ms each), shown, czas, sum` (suma kontrolna wszystkich
+  zdekodowanych klatek – porównanie dekoderów). Upstream pomija spóźnione klatki (i ich dźwięk), choć
+  dekodować trzeba każdą (Smacker = zmiany względem poprzedniej) – na Amidze pokazywana jest każda.
+- `port/overlay/3rdParty/libsmackerdec` (kopia biblioteki, CMake jej używa zamiast pobierania):
+  `BitReader` wczytuje cały blok jednym `ReadBytes` (wcześniej `SDL_RWread` co 4 bajty przez MPQ)
+  i czyta bity funkcjami inline; kody Huffmana obrazu z tablicy 8 bitów (`GetCodeFast`, liść jako indeks,
+  bo historia `last` zmienia wartości liści). Powiększanie 2× długimi słowami do obu wierszy naraz.
+
+| Film | Wzorzec (upstream) | Czytnik bitów | + tablica kodów | Suma kontrolna |
+|---|---|---|---|---|
+| Hellfire logo 320×240, 128 kl. po 66 ms | 97 ms/kl., pokazana 1 | 55 ms | **37 ms**, 8,6 s (nominalnie 8,5 s) | `a8308dee` bez zmian |
+| Diablo logo 320×156, 239 kl. | 30 ms/kl., pokazane 229 | 18 ms | **13 ms** | `c61fa6e5` bez zmian |
+| Hellfire intro 320×240, 539 kl. | – | – | **46 ms**, 36,3 s (nominalnie 35,9 s) | `1369b7c6` |
+
+  Profil intro po zmianach: dekoder 56%, `BlitFrame` (2×) 22%, wysyłanie na kartę (`msdl_video` +
+  `memcpy`) 17%. Test: `tools/video_test.sh [etykieta]` (oba tryby, linie `video` z logu).
+
+**Dźwięk filmów** (wcześniej nie było go wcale: build z `NOSOUND`, a odtwarzacz wysyła dźwięk przez
+SDL_audiolib). Teraz `storm_svid.cpp` (Amiga) co klatkę bierze dźwięk ze Smackera, zamienia na 8 bit ze
+znakiem (16 bit → starszy bajt, 8 bit bez znaku → ^0x80, inna częstotliwość → krok 16.16 do 22 050 Hz)
+i pisze do **strumienia 2** miksera Pauli (`amiga_sound.c`: 3 strumienie; `amiga_snd_stream_prime` –
+strumień milczy, dopóki w pierścieniu nie ma 4096 ramek, ~190 ms zapasu). Głośność z ustawienia efektów
+(liniowo, jak `GetVolume` upstream). Pierścienie strumieni zwalniane przy końcu gry (wcześniej wyciek
+3 × 128 KB przy każdym wyjściu). Filmy: logo Hellfire 16 bit stereo, logo Diablo 16 bit mono, 22 050 Hz.
+
+Dźwięk jest zegarem: wysyłany zawsze, przed decyzją o klatce; klatka spóźniona o ponad 2 klatki nie jest
+pokazywana (najwyżej 2 pod rząd). Bez pomijania obraz z dźwiękiem nie nadążał: intro 37,8 s zamiast 35,9,
+111 niedopełnień strumienia (dziury po 23 ms).
+
+| Film (Amiga 1, z dźwiękiem) | Czas | Pokazane klatki | Niedopełnienia dźwięku |
+|---|---|---|---|
+| Hellfire logo, 128 kl. | 8,6 s | 98 | 0 |
+| Hellfire intro, 539 kl. | 36,0 s | 411 | 0 |
+| Diablo logo, 239 kl. | 16,0 s | 240 (0 pominiętych) | 0 |
+
+Bez dźwięku (`NOSOUND`) przy tej regule logo Hellfire pomija 24 klatki – ciężkie fragmenty filmu same
+przekraczają 66 ms na dekodowanie z wyświetleniem. Dalsze możliwości: wyświetlanie filmu (2× + wysłanie
+300 KB na kartę co klatkę, ~20 ms), dekoder w asm.
+
 ### Dźwięk, krok 3: mowa strumieniowo (4.11.2026)
 
 `utils/amiga_wavstream.hpp`: wspólny czytnik WAV z MPQ po kawałkach (muzyka – strumień 0, mowa –
@@ -398,7 +444,7 @@ Krok B (bez kopii sceny do bufora gry przy ruchu kamery): **nie robimy** (decyzj
 - Ikona `devilutionx.info` (`sh tools/make_game_icon.sh`): logo DIABLO z menu (104×40, ColorIcon),
   stos w ikonie 1 000 000. Tool Types (te same słowa działają jako argumenty w Shellu, `amiga_wb.c`
   `amiga_args`): `DATADIR=` (→ `--data-dir`), `SAVEDIR=` (→ `--save-dir` i `--config-dir`),
-  `LANGUAGE=pl|en|de` (→ `--lang`, każdy język gry), `SKIPINTRO` (→ `-n`), `SHOWFPS=YES|NO` (licznik
+  `LANGUAGE=pl|en|de` (→ `--lang`, każdy język gry), `SKIPINTRO` (→ `-n`), `GAME=HELLFIRE|DIABLO` (→ `--hellfire` / `--diablo`), `SHOWFPS=YES|NO` (licznik
   kl./s, nadpisuje `diablo.ini`), `NOSOUND`. W ikonie: `DATADIR=WorkSD:Games/Diablo`,
   `SAVEDIR=PROGDIR:save`, `LANGUAGE=pl`, `SHOWFPS=YES`, podpowiedzi `(LANGUAGE=en)`, `(LANGUAGE=de)`,
   `(SKIPINTRO)`, `(NOSOUND)`.

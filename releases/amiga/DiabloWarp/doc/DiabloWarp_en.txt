@@ -1,7 +1,7 @@
 DiabloWarp - Diablo for the Amiga with a Warp card
 ==================================================
 
-Version 0.47 (beta), 4 November 2026
+Version 0.48 (beta), 14 November 2026
 
 Diablo (Blizzard, 1996) on the Amiga: DevilutionX, the open source engine of
 Diablo, ported to AmigaOS 3 and tuned for the Warp accelerator cards.
@@ -28,10 +28,15 @@ Installing
 ----------
 
 1. Unpack the archive, for example:
-      UnZip DiabloWarp-0.47.zip -d Work:Games
+      UnZip DiabloWarp-0.48.zip -d Work:Games
 2. Copy diabdat.mpq from your Diablo CD or the GOG version into the drawer
    DiabloWarp/data. The game data is not included.
 3. Start the game from the devilutionx icon.
+
+Diablo: Hellfire (the expansion, optional): copy hellfire.mpq, hfmonk.mpq,
+hfmusic.mpq and hfvoice.mpq (for example from the GOG version) into
+DiabloWarp/data. Then the Hellfire icon starts Hellfire and the devilutionx
+icon plain Diablo.
 
 Saves and settings are kept in DiabloWarp/save.
 
@@ -86,6 +91,11 @@ the Shell, for example: devilutionx LANGUAGE=de):
     SAVEDIR=dir       saves and diablo.ini (default PROGDIR:save)
     LANGUAGE=xx       language: en, pl, de, ...
     SHOWFPS=YES|NO    frame counter on or off
+    GAME=DIABLO       plain Diablo (the devilutionx icon)
+    GAME=HELLFIRE     Diablo: Hellfire (the Hellfire icon; hellfire.mpq,
+                      hfmonk.mpq, hfmusic.mpq, hfvoice.mpq in the data drawer)
+                      without GAME: the game asks at the start or keeps the
+                      choice
     SKIPINTRO         no videos at the start
     NOSOUND           no sound
 Tool Types in brackets, like (SKIPINTRO), are off: remove the brackets to use
@@ -119,7 +129,8 @@ Not in this version
 -------------------
 
 - Multiplayer and network games
-- Diablo: Hellfire is not tested
+- Diablo: Hellfire is tested only in the menus and the class choice (Monk);
+  playing in the Hive and the Crypt not yet
 
 
 Credits and licence

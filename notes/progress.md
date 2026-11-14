@@ -34,3 +34,32 @@
 - `port/sdl`: przenieść na prawdziwe nagłówki, zaślepki dla brakujących funkcji, `libmsdl.a`.
 - `tools/build.sh`: upstream + overlay + `NOSOUND` + nasz SDL2 → `build/amiga/devilutionx`.
 - Pierwszy start na Amidze 1 (menu z `-n`), potem obraz 8-bit, wejścia, dźwięk.
+
+## 14.11.2026 – Diablo: Hellfire
+
+- Pliki Hellfire (GOG): `hellfire/` na PC (poza gitem, `*.mpq` w .gitignore); na Amidze 1
+  w `WorkSD:Games/DiabloWarp/data/` (hellfire, hfmonk, hfmusic, hfvoice). Amiga 2 nie odpowiadała na ping.
+- Przyczyna braku Hellfire: luźny mod `mods/hf` szukany tylko w PrefPath (`save/`) i BasePath (`data/`),
+  a w paczce `mods/` leży obok programu. Łatka w `apply_port.py` (assets.cpp): też `PROGDIR:mods/<mod>/`.
+  Objaw w logu: `Missing: mods/hf`, `Asset not found: lua\mods\hf\init.lua`, w ini `hf=1`, a logo DIABLO.
+- Tool Type / argument `GAME=HELLFIRE|DIABLO` (→ `--hellfire` / `--diablo`), w ikonie jako podpowiedź.
+- Sprawdzone na Amidze 1 (`tools/amiga/run-hellfire`): intro Hellfire, menu HELLFIRE, klasy z Mnichem.
+  Nie sprawdzone: rozgrywka, Ul / Krypta, wydajność.
+- Wysyłanie dużych plików przez AmiAgent: domyślny limit klienta 30 s za mały (plik dochodzi, klient
+  zgłasza timeout); raz `hfmusic.mpq` stanął na 15 min, ponowienie poszło w 27 s.
+- Dwie ikony: `devilutionx` (GAME=DIABLO) i projekt `Hellfire` (Default Tool devilutionx, GAME=HELLFIRE);
+  `amiga_wb.c` czyta Tool Types programu i ikony projektu, ostatnie GAME= wygrywa. Bez wymuszonego trybu
+  `--hellfire` zostawia w diablo.ini `hf=1` (mod włączony na stałe) – stąd „zawsze Hellfire” u użytkownika.
+  Sprawdzone przez `wbrun` na Amidze 1: Hellfire-test → ekran Hellfire, devilutionx-test → menu DIABLO.
+- Filmy (pomiar w logu `video ...`, Amiga 1, 060): Diablo logo 320×156, 30 ms dekodowania na klatkę 66 ms,
+  229/239 pokazanych; Hellfire logo 320×240, ~22 KB danych na klatkę, 97–103 ms dekodowania → upstream
+  pokazał 1/128 (pomija spóźnione klatki i ich dźwięk). Pliki w MPQ nieskompresowane (flagi 0x80000000),
+  więc koszt to sam dekoder Smacker. Teraz na Amidze bez pomijania: 129/128 pokazanych, 15,6 s zamiast
+  8,5 s (zwolnione ~1,8×). Dalej: profil dekodera (libsmacker), cel < 66 ms na klatkę.
+- Dekoder filmów (libsmackerdec w `port/overlay/3rdParty`): czytnik bitów z bufora + tablica kodów Huffmana.
+  Hellfire logo 97 → 37 ms/kl., Diablo 30 → 13 ms, sumy kontrolne bez zmian; długie intro Hellfire
+  539 kl. w 36,3 s (nominalnie 35,9). Szczegóły w PORTING.md. Dźwięku filmów nie sprawdzałem.
+- Dźwięk filmów (nie było go wcale – NOSOUND): strumień 2 miksera Pauli, zapas 4096 ramek, dźwięk jako zegar,
+  pomijanie klatek spóźnionych o > 2 klatki. Intro Hellfire 36,0 s, 0 niedopełnień, 411/540 klatek;
+  logo Hellfire 98/128; Diablo 240/240. Pierścienie strumieni zwalniane przy wyjściu (był wyciek).
+  Odsłuch przez użytkownika: do zrobienia.

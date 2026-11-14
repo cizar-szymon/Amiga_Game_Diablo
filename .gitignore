@@ -10,3 +10,6 @@
 /PIC_ERR/
 /pic_err/
 __pycache__/
+
+# Diablo: Hellfire (game files, never in git)
+hellfire/

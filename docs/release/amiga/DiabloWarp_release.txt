@@ -7,6 +7,17 @@ numerem wersji (w lewym dolnym rogu menu głównego albo "Version devilutionx"
 w Shellu).
 
 
+0.48 (beta) - 14 listopada 2026
+-------------------------------
+
+- Diablo: Hellfire: z plikami hellfire.mpq, hfmonk.mpq, hfmusic.mpq i
+  hfvoice.mpq w DiabloWarp/data gra działa jako Hellfire (Mnich, nowe
+  lochy); osobna ikona Hellfire, ikona devilutionx uruchamia zwykłe Diablo
+- Tool Type GAME=DIABLO|HELLFIRE
+- filmy z dźwiękiem; szybszy dekoder filmów (intro Hellfire na 68060
+  w czasie oryginału)
+
+
 0.47 (beta) - 4 listopada 2026
 ------------------------------
 

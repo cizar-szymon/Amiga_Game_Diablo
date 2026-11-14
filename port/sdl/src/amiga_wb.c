@@ -30,31 +30,39 @@ int amiga_wb_start(void)
   return _WBenchMsg != NULL;
 }
 
+/* The Tool Types of the program's icon, then of the project icon it was
+   started from (the Hellfire icon: Default Tool devilutionx, GAME=HELLFIRE);
+   a later word wins (amiga_args). */
 int amiga_tooltypes(char ***list)
 {
   struct WBArg *arg;
   struct DiskObject *dobj;
   BPTR old;
-  int n = 0;
+  int n = 0, a;
 
   *list = tooltypes;
   if (_WBenchMsg == NULL || _WBenchMsg->sm_NumArgs < 1) return 0;
   IconBase = OpenLibrary((CONST_STRPTR)"icon.library", 36);
   if (IconBase == NULL) return 0;
-  arg = _WBenchMsg->sm_ArgList;
-  old = CurrentDir(arg->wa_Lock);
-  dobj = GetDiskObject(arg->wa_Name);
-  CurrentDir(old);
-  if (dobj != NULL) {
-    STRPTR *tt = (STRPTR *)dobj->do_ToolTypes;
-    for (; tt != NULL && *tt != NULL && n < MAX_TOOLTYPES; tt++) {
-      /* "(OPTION)" is a disabled hint, an empty line nothing. */
-      if ((*tt)[0] == '(' || (*tt)[0] == 0) continue;
-      strncpy(tooltype_text[n], (const char *)*tt,
-              sizeof(tooltype_text[n]) - 1);
-      tooltype_text[n][sizeof(tooltype_text[n]) - 1] = 0;
-      tooltypes[n] = tooltype_text[n];
-      n++;
+  for (a = 0; a < (int)_WBenchMsg->sm_NumArgs; a++) {
+    /* the program and the last project (more icons: only the last one) */
+    if (a != 0 && a != (int)_WBenchMsg->sm_NumArgs - 1) continue;
+    arg = &_WBenchMsg->sm_ArgList[a];
+    old = CurrentDir(arg->wa_Lock);
+    dobj = GetDiskObject(arg->wa_Name);
+    CurrentDir(old);
+    if (dobj == NULL) continue;
+    {
+      STRPTR *tt = (STRPTR *)dobj->do_ToolTypes;
+      for (; tt != NULL && *tt != NULL && n < MAX_TOOLTYPES; tt++) {
+        /* "(OPTION)" is a disabled hint, an empty line nothing. */
+        if ((*tt)[0] == '(' || (*tt)[0] == 0) continue;
+        strncpy(tooltype_text[n], (const char *)*tt,
+                sizeof(tooltype_text[n]) - 1);
+        tooltype_text[n][sizeof(tooltype_text[n]) - 1] = 0;
+        tooltypes[n] = tooltype_text[n];
+        n++;
+      }
     }
     FreeDiskObject(dobj);
   }
@@ -83,6 +91,7 @@ void amiga_message(const char *text)
    SAVEDIR=dir       --save-dir dir --config-dir dir (saves, diablo.ini)
    LANGUAGE=pl|en|de --lang (any language the game has)
    SKIPINTRO         -n
+   GAME=HELLFIRE|DIABLO  --hellfire / --diablo (without it: the game's own setting)
    SHOWFPS=YES|NO    the frame counter on or off (over diablo.ini)
    NOSOUND           no sound */
 int amiga_opt_showfps = -1;
@@ -91,6 +100,7 @@ int amiga_opt_nosound = 0;
 #define MAX_ARGS 64
 static char *new_argv[MAX_ARGS + 1];
 static char dir_text[2][160];
+static const char *game_arg;
 
 static int starts(const char *s, const char *key)
 {
@@ -125,6 +135,10 @@ static int option_word(const char *t, int *n)
     new_argv[(*n)++] = (char *)(t + 9);
   } else if (!strcasecmp(t, "SKIPINTRO") && *n + 1 <= MAX_ARGS) {
     new_argv[(*n)++] = (char *)"-n";
+  } else if (starts(t, "GAME=")) {
+    /* added once at the end: the last GAME= wins (program icon, then project) */
+    if (!strcasecmp(t + 5, "HELLFIRE")) game_arg = "--hellfire";
+    else if (!strcasecmp(t + 5, "DIABLO")) game_arg = "--diablo";
   } else if (starts(t, "SHOWFPS")) {
     const char *v = strchr(t, '=');
     amiga_opt_showfps = (v == NULL || !strcasecmp(v + 1, "YES") || !strcasecmp(v + 1, "ON") || !strcmp(v + 1, "1")) ? 1 : 0;
@@ -150,6 +164,7 @@ void amiga_args(int *argc, char ***argv)
       new_argv[n++] = (*argv)[i];
     }
   }
+  if (game_arg != NULL && n < MAX_ARGS) new_argv[n++] = (char *)game_arg;
   new_argv[n] = NULL;
   *argc = n;
   *argv = new_argv;
