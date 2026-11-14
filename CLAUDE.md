@@ -18,7 +18,9 @@
   i ini w `private/amiga1-old-Diablo`). Gra użytkownika to wydanie w `WorkSD:Games/DiabloWarp` (ikony
   devilutionx i Hellfire), dane w `WorkSD:Games/DiabloWarp/data` (diabdat, pl, hellfire, hf*.mpq).
   Skrypty `tools/amiga/run-*`: `GAME=DIABLO --data-dir WorkSD:Games/DiabloWarp/data/`, program
-  `devilutionx-test`. Na Amidze 2 `WorkSD:Games/Diablo` może dalej być – sprawdzić, zanim skrypty pójdą tam.
+  `devilutionx-test`. Na Amidze 2 tak samo (14.11.2026): wydanie 0.48 w `WorkSD:Games/DiabloWarp`,
+  dane z Hellfire w `data/`, stare `WorkSD:Games/Diablo` usunięte (zapis w `private/amiga2-old-Diablo`).
+  AmiAgent na Amidze 2 potrafi zawiesić się przy kilku dużych `put` w jednym przebiegu – wgrywać po jednym.
 - Stan prac i liczby: `docs/PORTING.md`, bieżące notatki: `notes/progress.md`.
 - Stary port z Aminetu (2020) leży w `AmigaPortOrginal/` (poza gitem); jest tam też
   `diabdat.mpq` (517 MB, wersja CD). Danych gry nigdy nie commitować.
