@@ -63,3 +63,6 @@
   pomijanie klatek spóźnionych o > 2 klatki. Intro Hellfire 36,0 s, 0 niedopełnień, 411/540 klatek;
   logo Hellfire 98/128; Diablo 240/240. Pierścienie strumieni zwalniane przy wyjściu (był wyciek).
   Odsłuch przez użytkownika: do zrobienia.
+- 0.48 wydane (commit f2b172b), zainstalowane na Amidze 1 w WorkSD:Games/DiabloWarp (ikony devilutionx, Hellfire).
+  Usunięte na prośbę użytkownika: stary port WorkSD:Games/Diablo (+ Diablo.info; zapis i ini w
+  private/amiga1-old-Diablo), Test048, ikony testowe. Skrypty run-* czytają dane z DiabloWarp/data, GAME=DIABLO.

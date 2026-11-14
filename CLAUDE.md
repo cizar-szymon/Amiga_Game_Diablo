@@ -10,12 +10,15 @@
   mini-SDL2 z `../Dune/port/sdl`), bez prawdziwej biblioteki SDL2.
 - **Tylko Amiga.** Upstream na PC służy tylko jako wzorzec.
 - Od 4.11.2026 (rano) testy na **Amidze 2** (A4000 + Warp 7060): `export AMIAGENT_CONFIG=C:/amiga-dev/amiagent-2.cfg`
-  przed skryptami z `tools/`; ten sam układ katalogów i to samo `WorkSD:Games/Diablo` (dane, tylko odczyt).
+  przed skryptami z `tools/`; ten sam układ katalogów (stan z 4.11.2026: dane w `WorkSD:Games/Diablo`).
   Zapisy testowe: `private/amiga1-DiabloWarp/save` (kopie z Amigi 1).
 - Testy (wcześniej): **Amiga 1** (A1200 + Warp 1260, 192.168.5.115, domyślny `C:/amiga-dev/amiagent.cfg`;
-  3.11.2026 Amiga 2 niedostępna), katalog `WorkSD:Games/DiabloWarp`. Dane czytane z
-  `WorkSD:Games/Diablo/diabdat.mpq` (`--data-dir`). **`WorkSD:Games/Diablo` to instalacja
-  użytkownika (stary port, jego zapis `single_0.sv`) – niczego tam nie zapisywać.**
+  3.11.2026 Amiga 2 niedostępna), katalog `WorkSD:Games/DiabloWarp`.
+- Od 14.11.2026 na Amidze 1 stary port `WorkSD:Games/Diablo` **usunięty** (decyzja użytkownika; jego zapis
+  i ini w `private/amiga1-old-Diablo`). Gra użytkownika to wydanie w `WorkSD:Games/DiabloWarp` (ikony
+  devilutionx i Hellfire), dane w `WorkSD:Games/DiabloWarp/data` (diabdat, pl, hellfire, hf*.mpq).
+  Skrypty `tools/amiga/run-*`: `GAME=DIABLO --data-dir WorkSD:Games/DiabloWarp/data/`, program
+  `devilutionx-test`. Na Amidze 2 `WorkSD:Games/Diablo` może dalej być – sprawdzić, zanim skrypty pójdą tam.
 - Stan prac i liczby: `docs/PORTING.md`, bieżące notatki: `notes/progress.md`.
 - Stary port z Aminetu (2020) leży w `AmigaPortOrginal/` (poza gitem); jest tam też
   `diabdat.mpq` (517 MB, wersja CD). Danych gry nigdy nie commitować.
