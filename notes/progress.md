@@ -66,3 +66,14 @@
 - 0.48 wydane (commit f2b172b), zainstalowane na Amidze 1 w WorkSD:Games/DiabloWarp (ikony devilutionx, Hellfire).
   Usunięte na prośbę użytkownika: stary port WorkSD:Games/Diablo (+ Diablo.info; zapis i ini w
   private/amiga1-old-Diablo), Test048, ikony testowe. Skrypty run-* czytają dane z DiabloWarp/data, GAME=DIABLO.
+
+## 24.11.2026 – automapa (Amiga 1)
+
+- Zgłoszenie: otwarta mapa spowalnia grę (też przy samym chodzeniu). Szczegóły i liczby: PORTING.md, „Automapa”.
+- Lista postaci na Amidze 1: QQQ, QQQ (postacie użytkownika, `single_2/3.sv`), AR (y=323), WARP (y=349);
+  wszystkie skrypty `tools/scene_*.sh`, `verify_*.sh` klikają teraz 323 (AR) / 349 (WARP).
+- Błąd w moim teście: dwa pierwsze przebiegi kliknęły 270 i grały postacią użytkownika z `single_3.sv`
+  (~30 s chodzenia, `DIABLO_GOD`); gra zapisała ją przy wyjściu. Kopii sprzed testu nie było.
+  `single_0/1.sv` i `diablo.ini` przywrócone z `private/amiga1-save-20261124`.
+- Awaria `trap 5` (dzielenie przez zero) w nowych wierszach statystyk mapy przy zamkniętej mapie –
+  poprawione (klamry), Amiga 1 zresetowana przez użytkownika.

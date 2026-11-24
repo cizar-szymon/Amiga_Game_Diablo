@@ -125,8 +125,8 @@ static void stats_frame(unsigned long t_start, unsigned long t_end)
             s_bufs0 = sb;
             s_gaps0 = sg;
         }
-        msdl_logf(SDL_LOG_PRIORITY_INFO, "stats: clock %lu ms reads, %lu E-clock reads per frame", msdl_counter[8] / f,
-                  msdl_counter[9] / f);
+        msdl_logf(SDL_LOG_PRIORITY_INFO, "stats: clock %lu ms reads, %lu E-clock reads per frame (%s)", msdl_counter[8] / f,
+                  msdl_counter[9] / f, amiga_eclock_fpga() ? "Warp FPGA counter" : "timer.device");
         msdl_counter[8] = msdl_counter[9] = 0;
         st_panel_full = 0;
         stats_t0 = t_end;

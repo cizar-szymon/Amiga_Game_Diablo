@@ -12,8 +12,10 @@
 | 5. Pomiar i optymalizacja | ✅ 4.11: renderer komórkowy, pętle asm, VRAM/blitter, FindPath; Amiga 2 100 MHz: Tristram 91 / marsz 47–66, loch walka 46, marsz 17–26 kl./s (stary port 11–17) |
 | 5a. Dźwięk: efekty, muzyka, mowa (Paula, ~1–3,5% CPU), polskie głosy (`pl.mpq` przerobiony na WAV) | ✅ 4.11 |
 | 5b. Ikona z Tool Types, stos 1 000 000 (także z ikony), języki pl/en/de, filmy 2× | ✅ 4.11 |
-| 6. Standard klawiszy (P pauza, Esc), F10 raport do `RAM:Diablo-report`, numer wersji (`port/VERSION`, menu, `$VER`), opis awarii `RAM:Diablo-crash.txt` | ✅ 4.11 (Amiga 2) |
+| 6. Standard klawiszy (P pauza, Esc), F10 raport (od 24.11 w `save/bugNNN/`), numer wersji (`port/VERSION`, menu, `$VER`), opis awarii `RAM:Diablo-crash.txt` | ✅ 4.11 (Amiga 2) |
 | 7. Wydanie 0.47: opisy PL/EN, historia wydań, `tools/make_release.sh` → `releases/amiga`, ZIP (sprawdzony `UnZip` na Amidze 2), pełna paczka `private/DiabloWarp-0.47-full.zip` (618 MB: + `diabdat.mpq` z CD i przerobiony `pl.mpq` w `data/`), README, LICENSE | ✅ lokalnie; GitHub `cizar-szymon/Amiga_Game_Diablo` czeka na zgodę |
+| 8. Automapa: mapa z pamięci pól i klatki, wysyłanie tylko zmian, `-mtune=68060`, sondy z licznika FPGA | ✅ 24.11 (Amiga 1): marsz z mapą 16 → 22 kl./s, postój 20 → 40 |
+| 9. Wydanie 0.49: mapa, `-mtune=68060`, F10 → `save/bugNNN` + wysyłka na serwer gier, „Gra zapisana” znika, nowa ikona szuflady WARP; ZIP sprawdzony na Amidze 1 (`UnZip`, `Version`, menu „Warp 0.49”) | ✅ 25.11 |
 
 ## Decyzje (3.11.2026, zaakceptowane przez użytkownika)
 
@@ -242,6 +244,107 @@ oprogramowania RTG Warpa.
   marsz 46–58, loch marsz 18–34. `memcpy` ma teraz 10,6% próbek, ale to już sama kopia (pamięć),
   nie wywołanie systemu. Kontrole obrazu: 0 różnic. (Wcześniej AmiAgent na Amidze 1 przestał odpowiadać
   o ~4:15, przed wgraniem tej wersji.)
+
+### Automapa (24.11.2026, Amiga 1: A1200 + Warp 1260 Extreme, 68060)
+
+Zgłoszenie użytkownika: włączona mapa (Tab) bardzo spowalnia grę, także przy samym chodzeniu bez walki.
+Pomiary: `tools/scene_mapwalk.sh` (ten sam marsz z tego samego zapisu z mapą i bez, `HEROY=349` = miasto),
+`tools/scene_automap.sh` (postój i marsz z mapą, potem bez); sondy czasu w logu `cells: automap ...`.
+
+Przyczyny (wersja 0.48):
+1. Przy otwartej mapie renderer komórkowy był wyłączany (`OverlayAll`): co klatkę cała scena kopiowana
+   do bufora gry i cały widok (300 KB) wysyłany do karty.
+2. `DrawAutomap` liczy co klatkę ~1000 pól mapy (każde z 9 sąsiadami) i rysuje piksel po pikselu:
+   13–15 ms na klatkę, choć piksele ma tylko ~60 pól (~2,7 tys. pikseli).
+3. Build `-m68040` bez `-mtune=68060`: 1386 instrukcji 64-bit `MULS.L`/`DIVU.L` (dzielenie przez stałą,
+   np. skala mapy `/100` w każdym polu), które 68060 emuluje w pułapkach.
+
+Zmiany:
+- Mapa (typ nieprzezroczysty, domyślny) zostaje w buforze gry między klatkami; kopia sceny wraca tylko
+  w brudnych prostokątach, mapa rysowana na wierzch, a skrót wszystkich jej pikseli mówi, czy do karty
+  trzeba wysłać całość (`AutomapBegin/End`, `msdl_view_send_all`). Gdy mapa się zmieni po częściowej
+  kopii – pełna kopia sceny i drugie rysowanie mapy („repairs” w logu, rzadkie).
+- Pamięć pikseli pól: każde pole zapisane raz (przesunięcia od środka), unieważniane przy zmianie
+  `AutomapView` / `dungeon` w promieniu 2 pól albo poziomu, skali, typu mapy.
+- Lista całej klatki: dopóki pierwsze pole pętli i pola się nie zmieniają (marsz: do przesunięcia mapy
+  o pole), cała pętla to jedna lista pikseli przepisywana z przesunięciem.
+- `-mtune=68060` w `tools/build.sh`: 1386 → 15 takich instrukcji (pozostałe `DIVU.L` 64/32 do sprawdzenia).
+- Sondy pomiarowe (`amiga_eclock`) czytają licznik E-Clock z FPGA Warpa (oprogramowanie 3075+, kontrola
+  `SysCfg`, inaczej `ReadEClock()`); w logu „E-clock reads ... (Warp FPGA counter)”.
+
+Zgodność: `tools/amiga/run-vmap` (`DIABLO_VERIFY_MAP` – każde pole i każda lista klatki porównane
+z rysowaniem po staremu; `DIABLO_VERIFY_PRESENT` – model karty): loch 830 tys. kontroli, miasto 640 tys.,
+**0 różnic**; 0 różnic modelu karty. `Avail` po testach bez zmian.
+
+| Scena (Amiga 1) | 0.48 | teraz | bez mapy (teraz) |
+|---|---|---|---|
+| loch, postój z mapą (walka) | 20,4 kl./s | **39–44** | 51 |
+| loch, marsz z mapą (`scene_mapwalk`) | ~16 (14,7–17) | **~22 (17–26)** | ~26 (19–32) |
+| miasto, marsz z mapą | 15,4–17,9 | **26–49** | – |
+| czas `DrawAutomap` na klatkę | 13–15 ms | 2,7–3,9 ms | – |
+
+Rozkład mapy teraz (marsz): lista klatki 0,9–2 ms, napisy na mapie (`DrawAutomapText`) 1,6 ms,
+sprawdzenie tablic 0,25 ms. Dalej możliwe: napisy mapy z pamięci, pozostałe 15 `DIVU.L`.
+
+### Test sprzątania po wyjściu (24.11.2026, Amiga 1: A1200 + Warp 1260 Extreme, wersja testowa po zmianach mapy)
+
+`sh tools/cleanup_test.sh` (PORTING_PLAN, reguła z 23.11.2026): 7 rund – wyjście z menu (`quit` = SDL_QUIT),
+z gry (postać AR, loch, mapa, marsz, `quit`) i z gry przez Ctrl-C (`stop` AmiAgenta); przed i po każdej
+rundzie `Avail FLUSH`, `titles`, `Status`. Log gry na `WorkSD:` (w `RAM:` liczyłby się do pamięci).
+
+| Runda | wyjście | Fast RAM ubyło | ponad bitmapę ekranu |
+|---|---|---|---|
+| 1, 2, 7 | menu, SDL_QUIT | 307 352 B | 0 |
+| 3, 5 | gra, SDL_QUIT | 307 432 B | 80 B |
+| 4 | gra, Ctrl-C | 308 496 B | 1 144 B (tylko raz) |
+| 6 | gra, Ctrl-C | 307 432 B | 80 B |
+| osobno | start z filmami (bez `-n`), menu, SDL_QUIT | 307 432 B | 80 B |
+
+- Chip RAM: 0 różnicy. Ekrany (`titles`) i procesy (`Status`) po każdej rundzie jak przed startem.
+- 307 352 B na uruchomienie to znany wyciek sterownika RTG Warpa (wyżej, „Wyciek pamięci przy
+  zamykaniu ekranu RTG”: jedna bitmapa 640×480×8 na każde otwarcie i zamknięcie ekranu). Gra otwiera
+  ekran raz na całe uruchomienie, także z filmami, więc mniej się nie da. Do zgłoszenia autorowi RTG Warpa.
+- Reszta: 80 B w rundach z grą albo z filmami, raz 1 144 B przy Ctrl-C. Niewyjaśnione (może bufor
+  systemu plików przy zapisie postaci / ini) – do sprawdzenia.
+
+### Zgłoszenia błędów w szufladach bugNNN (24.11.2026, reguła z PORTING_PLAN)
+
+F10 w grze (tylko gra jednoosobowa) robi w katalogu zapisów (`--save-dir`, w wydaniu `PROGDIR:save`)
+szufladę `bugNNN` – NNN to pierwszy numer bez szuflady `bugNNN` i bez starego pliku `bugNNN.txt` – a w niej:
+- `bugNNN-screen.bmp` – ostatnia klatka (8 bit, paleta gry), zapisana **przed** zapisem gry
+  (inaczej na obrazie jest okienko „Zapisywanie...”);
+- `bugNNN.sv` – kopia zapisu gry zaraz po zapisie (jak z menu gry), `bugNNN.ini` – ustawienia;
+- `bugNNN.txt` – numer wydania, gra (Diablo / Hellfire, pełne dane / shareware), Amiga (procesor, FPU,
+  wersja exec, karta Warp i identyfikator FPGA `SysCfg`, wolna pamięć – `port/sdl/src/amiga_machine.c`),
+  postać i poziom, nazwy plików, miejsce na opis gracza.
+Lista postaci czyta tylko `single_N.sv` z katalogu zapisów, więc zapisów ze zgłoszeń nie pokazuje; zapis
+wczytuje się po skopiowaniu jako `single_N.sv`. Wysyłania na serwer w Diablo nie ma.
+
+Test (Amiga 1): dwa razy F10 w lochu → `bug001`, `bug002` (po 4 pliki, obraz sprawdzony na PC), lista
+postaci bez zmian; szuflady testowe usunięte, zapisy przywrócone z `private/amiga1-save-20261124b`.
+
+### Zgłoszenia na serwer gier (25.11.2026, `C:\Workprojects\AmigaGAMES\GAME_SERVER.md`)
+
+- Serwer (`C:\Workprojects\AmigaSoft\Amiga_GameSerwer`): w `protocol.GAMES` gra `Diablo-` (klucz
+  `diablo`, tylko zgłoszenia, jak Syndicate Wars i C&C), podstrona `/diablo`; strona zgłoszenia pokazuje
+  zrzut `.bmp` i `bugNNN.txt`. Testy serwera 26/26, wgrane na CM4 (`tools/deploy.sh`, za zgodą użytkownika).
+- Gra: po F10 (szuflada `bugNNN`, wyżej), gdy `bsdsocket.library` jest w pamięci, pasek rozmowy Diablo
+  (w grze jednoosobowej normalnie wyłączony) pyta o e-mail (zapamiętany w `save/report.ini`, tam też
+  `server=host:port`, domyślnie `83.12.152.135:6810`), potem o opis linijka po linijce (do 1000 znaków,
+  polskie i niemieckie litery bez ogonków); pusty Enter wysyła, Esc zostawia pliki tylko na dysku.
+  Opis dopisywany też do `bugNNN.txt`. Wysyła osobny proces „DevilutionX report” (`port/sdl/src/amiga_report.c`,
+  kopia z OpenDUNE: własna baza `bsdsocket`, priorytet 1, kończony przez `atexit`), gra co takt odpytuje wynik
+  i pokazuje „Report no. N sent. Thank you!”. Wersja na serwerze: `Diablo-<port/VERSION>`.
+- Test (Amiga 1): dwa zgłoszenia doszły (4 pliki, ok. 730 KB, kilka sekund, w tym czasie gra ~8 kl./s),
+  Esc nie wysłał nic; zgłoszenia testowe usunięte na stronie serwera (Delete → `data/deleted/`), szuflady
+  i `report.ini` na Amidze usunięte, zapisy przywrócone.
+
+### Napis „Gra zapisana” zostawał na ekranie (25.11.2026, zgłoszenie użytkownika)
+
+Błąd upstream widoczny tylko na wolnym dysku: `gamemenu_save_game` pokazuje „Game saved” przez
+`currentTime + 1000 - SDL_GetTicks()` ms (`uint32_t`). Na PC zapis trwa < 1 s; na Amidze kilka sekund, więc
+czas przekręcał się na ~49 dni i napis znikał dopiero po Esc / kliknięciu. Teraz reszta sekundy, a gdy zapis
+trwał dłużej – 1 s. Sprawdzone na Amidze 1 (zapis z menu gry): 12 i 20 s po zapisie napisu już nie ma.
 
 ## Dźwięk – rozpoznanie i test miksera (4.11.2026)
 
@@ -487,4 +590,4 @@ z AmiXcom): przy awarii gra zapisuje `RAM:Diablo-crash.txt` (rejestry, 4 KB stos
 `python tools/map2syms.py build/amiga/devilutionx.map build/amiga/devilutionx.syms`,
 `python tools/crashmap.py crash.txt build/amiga/devilutionx.syms` (funkcje lokalne LTO nie są
 w mapie – wtedy `objdump -d` w okolicy adresu). Test: polecenie `crash` w `RAM:diablo-cmd`.
-Przy okazji F10 nie zgłasza błędu, gdy `RAM:Diablo-report` już istnieje.
+Przy okazji F10 nie zgłasza błędu, gdy `RAM:Diablo-report` już istnieje. (Od 24.11.2026 raport idzie do `save/bugNNN/`, niżej.)

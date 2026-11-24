@@ -12,7 +12,7 @@ $R put build/amiga/devilutionx WorkSD:Games/DiabloWarp/devilutionx-test >/dev/nu
 $R put tools/amiga/$1 RAM:$1 >/dev/null
 $R start "Execute RAM:$1" >/dev/null
 python -c "import time; time.sleep(8)"
-sh tools/cmd.sh "0 click 320 213" "2500 click 410 270" "500 click 300 445" "2500 key return" "29300 key tab" "1000 mark measure" "0 profon" "20000 profoff"
+sh tools/cmd.sh "0 click 320 213" "2500 click 410 323" "500 click 300 445" "2500 key return" "29300 key tab" "1000 mark measure" "0 profon" "20000 profoff"
 python -c "import time; time.sleep(67)"
 $R stop devilutionx-test >/dev/null
 python -c "import time; time.sleep(5)"

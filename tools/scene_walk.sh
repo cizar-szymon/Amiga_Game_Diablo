@@ -8,8 +8,8 @@ test -f build/amiga/devilutionx || { echo "no build/amiga/devilutionx"; exit 1; 
 R="python tools/amiga_remote.py"
 sh tools/restore_saves.sh
 case "$1" in
-  town) HERO="2500 click 410 296"; MAP="22000 mark start" ;;
-  *) HERO="2500 click 410 270"; MAP="25000 key tab" ;;
+  town) HERO="2500 click 410 349"; MAP="22000 mark start" ;;
+  *) HERO="2500 click 410 323"; MAP="25000 key tab" ;;
 esac
 $R put build/amiga/devilutionx WorkSD:Games/DiabloWarp/devilutionx-test >/dev/null
 $R put tools/amiga/$2 RAM:$2 >/dev/null

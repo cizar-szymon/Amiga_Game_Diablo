@@ -25,6 +25,7 @@ extern "C" unsigned long amiga_eclock_per_ms(void);
 extern "C" void msdl_view_scene(int dx, int dy, int vw, int vh, const int *rects, int n, int full);
 extern "C" void msdl_view_overlay(int x, int y, int w, int h);
 extern "C" void msdl_view_overlay_all(void);
+extern "C" void msdl_view_send_all(void);
 extern "C" int msdl_view_take_damage(int *out4, int max);
 
 namespace devilution::amiga_cells {
@@ -62,7 +63,7 @@ DirtyRect fullRect;
 
 int envFull = -1, envVerify = -1, envStats = -1, envNoGuard = -1, envNoSkip = -1;
 bool noSkip = false;
-int envClear = -1, envNoDirect = -1, envNoColumn = -1;
+int envClear = -1, envNoDirect = -1, envNoColumn = -1, envMapAll = -1, envVerifyMap = -1;
 /** direct draw while the camera moves when the last frame had at least this share dirty (%) */
 int directShare = 80;
 
@@ -340,7 +341,19 @@ int BuildDirtyRects(int &visibleCells)
 }
 
 bool gameCopyValid = false;
+/** This frame's scene copy into the game's buffer was partial: what was drawn
+    over the scene last frame (outside the damage list) is still there. */
+bool lastCopyPartial = false;
 unsigned long stPartial;
+/** Automap stats: frames drawn, time, repairs, frames sent whole. */
+unsigned long stMapFrames, stMapTime, stMapRepairs, stMapSendAll;
+unsigned long stMapReplayed, stMapCaptured, stMapDirect, stMapVerified, stMapVerifyBad;
+bool mapKeptLast = false; // last frame drew the automap and kept it on the game's buffer
+bool mapKeptNow = false;
+uint32_t mapHashLast = 0;
+unsigned long mapT0, mapTLoop, mapTText, mapTPlr;
+unsigned long stMapFrameReplays, stMapFrameCaptures, stMapFrameBad, stMapFrameLen;
+unsigned long stMapInTile, stMapPre, stMapLoop, stMapText, stMapPlr, stMapPixels, stMapShown;
 int lastDirtyShare = 0;
 unsigned long stDirect;
 
@@ -438,6 +451,21 @@ void Stats(unsigned long now)
 	    f, stDirect, stRecentre, stFull, stPartial, stCells != 0 ? stDirty * 100 / stCells : 0, stRects / f,
 	    stRecord / perMs / f, (stRecord * 10 / perMs / f) % 10, stShift / perMs / f, (stShift * 10 / perMs / f) % 10,
 	    stRender / perMs / f, (stRender * 10 / perMs / f) % 10, stCopy / perMs / f, (stCopy * 10 / perMs / f) % 10);
+	if (stMapFrames != 0) {
+		SDL_Log("cells: automap %lu frames, %lu.%lu ms/frame, %lu repairs, %lu sent whole; tiles/frame %lu replayed, %lu captured, %lu direct; verify %lu tiles, %lu differ",
+		    stMapFrames, stMapTime / perMs / stMapFrames, (stMapTime * 10 / perMs / stMapFrames) % 10, stMapRepairs, stMapSendAll,
+		    stMapReplayed / stMapFrames, stMapCaptured / stMapFrames, stMapDirect / stMapFrames, stMapVerified, stMapVerifyBad);
+		SDL_Log("cells: automap whole-frame lists: %lu replayed, %lu captured, %lu not cached (%lu pixels in the last list)",
+		    stMapFrameReplays, stMapFrameCaptures, stMapFrameBad, stMapFrameLen);
+		stMapFrameReplays = stMapFrameCaptures = stMapFrameBad = 0;
+		SDL_Log("cells: automap parts ms/frame: before the tiles (with the map check) %lu.%02lu, tiles %lu.%02lu, players and items %lu.%02lu, text and end %lu.%02lu",
+		    stMapPre / perMs / stMapFrames, (stMapPre * 100 / perMs / stMapFrames) % 100,
+		    stMapLoop / perMs / stMapFrames, (stMapLoop * 100 / perMs / stMapFrames) % 100,
+		    stMapPlr / perMs / stMapFrames, (stMapPlr * 100 / perMs / stMapFrames) % 100,
+		    stMapText / perMs / stMapFrames, (stMapText * 100 / perMs / stMapFrames) % 100);
+	}
+	stMapReplayed = stMapCaptured = stMapDirect = stMapVerified = stMapPre = stMapLoop = stMapText = stMapPlr = 0;
+	stMapFrames = stMapTime = stMapRepairs = stMapSendAll = 0;
 	stFrames = stFull = stDirty = stCells = stRects = stRecord = stRender = stCopy = stShift = stPartial = stRecentre = stDirect = 0;
 	stT0 = now;
 }
@@ -627,6 +655,366 @@ void OverlayAll()
 	msdl_view_overlay_all();
 }
 
+void AutomapBegin(bool kept)
+{
+	// the map of the last frame is still on the game's buffer and the card:
+	// gone or drawn differently now -> copy and send everything
+	if (mapKeptLast && !kept)
+		msdl_view_overlay_all();
+	if (!kept)
+		mapKeptLast = false;
+	mapKeptNow = kept;
+}
+
+void AutomapDrawStart()
+{
+	mapHash = HashInit;
+	mapT0 = Env(envStats, "DIABLO_STATS") ? amiga_eclock() : 0;
+}
+
+// ---- automap tiles: captured pixel lists, replayed (amiga_cells.hpp) ----
+namespace {
+constexpr int MapDim = 40;      // DMAXX, DMAXY
+// cached tiles: map coordinates -32 .. 71, the whole loop of DrawAutomap
+// (tiles beyond -2 / 41 see only empty neighbours and draw nothing; their
+// colour reads the clamped AutomapView, within the 2-tile invalidation)
+constexpr int MapPad = 32;
+constexpr int MapCache = MapDim + 2 * MapPad;
+constexpr uint32_t MapPool = 262144;
+struct MapTileRef {
+	uint32_t start;
+	uint16_t count;
+	uint16_t stamp;  // valid when == mapStamp
+	int16_t x0, y0, x1, y1; // pixel box relative to the centre
+};
+MapTileRef mapTiles[MapCache][MapCache];
+uint32_t mapPool[MapPool];
+uint32_t mapPoolUsed = 0;
+uint16_t mapStamp = 1;
+uint32_t mapKeyLast = 0;
+uint8_t mapViewSeen[MapDim * MapDim], mapDungeonSeen[MapDim * MapDim];
+// tile being captured / verified
+int mapCapState = 0; // 1 capture, 2 verify
+int mapCapCx, mapCapCy;
+uint32_t mapCapStart;
+bool mapCapBad;
+int16_t mapCapX0, mapCapY0, mapCapX1, mapCapY1;
+MapTileRef *mapCapRef;
+// any change of the cached tiles (flush, invalidation, capture)
+uint32_t mapGen = 0;
+// the whole tile loop of one frame: every pixel relative to the loop's first
+// screen point, in drawing order; replayed while the loop's start tile and
+// the tiles stay the same (walking: until the map moves by a tile)
+constexpr uint32_t FrameMax = 32768;
+int16_t frX[FrameMax], frY[FrameMax];
+uint8_t frC[FrameMax];
+uint32_t frCount = 0, frId = 0, frHashSaved, frCheck;
+uint32_t frKey[5], frKeyNew[5];
+bool frValid = false, frCapturing = false, frBad = false, frVerifying = false;
+int frSX, frSY;
+
+void FrameAppend(const MapTileRef &r, int cx, int cy)
+{
+	if (!frCapturing)
+		return;
+	if (frCount + r.count > FrameMax) {
+		frBad = true;
+		return;
+	}
+	const int bx = cx - frSX - 2048, by = cy - frSY - 2048;
+	const uint32_t *p = mapPool + r.start;
+	for (int n = r.count; n > 0; n--) {
+		const uint32_t e = *p++;
+		frX[frCount] = static_cast<int16_t>(bx + static_cast<int>(e >> 20));
+		frY[frCount] = static_cast<int16_t>(by + static_cast<int>((e >> 8) & 0xFFF));
+		frC[frCount] = static_cast<uint8_t>(e);
+		frCount++;
+	}
+}
+
+uint32_t FrameChecksum()
+{
+	uint32_t h = HashInit;
+	for (uint32_t i = 0; i < frCount; i++)
+		h = Mix(h, (static_cast<uint32_t>(static_cast<uint16_t>(frX[i])) << 16) ^ static_cast<uint16_t>(frY[i]) ^ (static_cast<uint32_t>(frC[i]) << 24));
+	return Mix(h, frCount);
+}
+
+void MapFlush()
+{
+	mapGen++;
+	if (++mapStamp == 0) {
+		std::memset(mapTiles, 0, sizeof(mapTiles));
+		mapStamp = 1;
+	}
+	mapPoolUsed = 0;
+}
+
+void MapInvalidateAround(int x, int y)
+{
+	mapGen++;
+	for (int ty = y - 2; ty <= y + 2; ty++)
+		for (int tx = x - 2; tx <= x + 2; tx++) {
+			const int cx = tx + MapPad, cy = ty + MapPad;
+			if (cx >= 0 && cy >= 0 && cx < MapCache && cy < MapCache)
+				mapTiles[cx][cy].stamp = 0;
+		}
+}
+
+void MapCheckArray(const uint8_t *now, uint8_t *seen)
+{
+	if (std::memcmp(now, seen, MapDim * MapDim) == 0)
+		return;
+	for (int i = 0; i < MapDim * MapDim; i++) {
+		if (now[i] != seen[i]) {
+			seen[i] = now[i];
+			// [x][y] arrays: index = x * 40 + y
+			MapInvalidateAround(i / MapDim, i % MapDim);
+		}
+	}
+}
+} // namespace
+
+void MapTilesBegin(uint32_t key, const uint8_t *view, const uint8_t *dungeon)
+{
+	if (key != mapKeyLast) {
+		mapKeyLast = key;
+		MapFlush();
+		std::memcpy(mapViewSeen, view, sizeof(mapViewSeen));
+		std::memcpy(mapDungeonSeen, dungeon, sizeof(mapDungeonSeen));
+	} else {
+		MapCheckArray(view, mapViewSeen);
+		MapCheckArray(dungeon, mapDungeonSeen);
+	}
+	if (mapT0 != 0)
+		mapTLoop = amiga_eclock();
+}
+
+void MapCapturePixel(int x, int y, uint8_t color)
+{
+	const int dx = x - mapCapCx, dy = y - mapCapCy;
+	if (dx < -2048 || dx > 2047 || dy < -2048 || dy > 2047 || mapPoolUsed >= MapPool) {
+		mapCapBad = true;
+	} else {
+		mapPool[mapPoolUsed++] = (static_cast<uint32_t>(dx + 2048) << 20) | (static_cast<uint32_t>(dy + 2048) << 8) | color;
+		if (dx < mapCapX0) mapCapX0 = static_cast<int16_t>(dx);
+		if (dx > mapCapX1) mapCapX1 = static_cast<int16_t>(dx);
+		if (dy < mapCapY0) mapCapY0 = static_cast<int16_t>(dy);
+		if (dy > mapCapY1) mapCapY1 = static_cast<int16_t>(dy);
+	}
+	// the capture draws too (the caller's SetPixel)
+}
+
+namespace {
+void MapReplay(const Surface &out, const MapTileRef &r, int cx, int cy)
+{
+	const int w = out.w(), h = out.h();
+	if (r.count == 0 || cx + r.x1 < 0 || cy + r.y1 < 0 || cx + r.x0 >= w || cy + r.y0 >= h)
+		return;
+	uint8_t *const base = out.at(0, 0);
+	const int pitch = out.pitch();
+	const int bx = cx - 2048, by = cy - 2048;
+	const uint32_t *p = mapPool + r.start;
+	for (int n = r.count; n > 0; n--) {
+		const uint32_t e = *p++;
+		const int x = bx + static_cast<int>(e >> 20);
+		const int y = by + static_cast<int>((e >> 8) & 0xFFF);
+		if (static_cast<unsigned>(x) < static_cast<unsigned>(w) && static_cast<unsigned>(y) < static_cast<unsigned>(h))
+			base[y * pitch + x] = static_cast<uint8_t>(e);
+	}
+}
+} // namespace
+
+int MapTile(const Surface &out, int cx, int cy, int mx, int my)
+{
+	const int ix = mx + MapPad, iy = my + MapPad;
+	if (ix < 0 || iy < 0 || ix >= MapCache || iy >= MapCache) {
+		stMapDirect++;
+		frBad = true;
+		return 2;
+	}
+	MapTileRef &r = mapTiles[ix][iy];
+	const bool valid = r.stamp == mapStamp;
+	if (valid) {
+		MapReplay(out, r, cx, cy);
+		FrameAppend(r, cx, cy);
+		// same hash as when it was captured (see MapTileEnd)
+		mapHash = Mix(Mix(Mix(mapHash, r.start ^ (static_cast<uint32_t>(r.count) << 20)), static_cast<uint32_t>(cx)), static_cast<uint32_t>(cy));
+		stMapReplayed++;
+		if (!Env(envVerifyMap, "DIABLO_VERIFY_MAP"))
+			return 0;
+		mapCapState = 2; // draw it again the old way and compare
+	} else {
+		mapCapState = 1;
+	}
+	mapCapCx = cx;
+	mapCapCy = cy;
+	mapCapStart = mapPoolUsed;
+	mapCapBad = false;
+	mapCapX0 = mapCapY0 = 0x7FFF;
+	mapCapX1 = mapCapY1 = -0x8000;
+	mapCapRef = &r;
+	mapCapturing = true;
+	return 1;
+}
+
+void MapTileEnd()
+{
+	mapCapturing = false;
+	MapTileRef &r = *mapCapRef;
+	const uint32_t count = mapPoolUsed - mapCapStart;
+	if (mapCapState == 2) {
+		stMapVerified++;
+		const bool same = !mapCapBad && count == r.count && std::memcmp(mapPool + mapCapStart, mapPool + r.start, count * 4) == 0;
+		mapPoolUsed = mapCapStart;
+		if (!same) {
+			stMapVerifyBad++;
+			mapGen++;
+			frBad = true;
+			if (stMapVerifyBad <= 20)
+				SDL_Log("cells: VERIFY MAP tile at %d,%d: %lu pixels now, %u cached", mapCapCx, mapCapCy, static_cast<unsigned long>(count), r.count);
+			r.stamp = 0;
+		}
+	} else {
+		stMapCaptured++;
+		mapGen++;
+		if (mapCapBad || count > 0xFFFF) {
+			frBad = true;
+			mapPoolUsed = mapCapStart;
+			if (mapPoolUsed + 4096 >= MapPool)
+				MapFlush(); // full: start again next tiles
+			r.stamp = 0;
+		} else {
+			r.start = mapCapStart;
+			r.count = static_cast<uint16_t>(count);
+			r.x0 = mapCapX0;
+			r.y0 = mapCapY0;
+			r.x1 = mapCapX1;
+			r.y1 = mapCapY1;
+			r.stamp = mapStamp;
+			FrameAppend(r, mapCapCx, mapCapCy);
+		}
+		mapHash = Mix(Mix(Mix(mapHash, r.start ^ (count << 20)), static_cast<uint32_t>(mapCapCx)), static_cast<uint32_t>(mapCapCy));
+	}
+	mapCapState = 0;
+}
+
+bool MapFrameBegin(const Surface &out, int sx, int sy, int mx, int my, int cells, bool opaque)
+{
+	frCapturing = false;
+	if (!opaque) {
+		frValid = false;
+		return false;
+	}
+	frKeyNew[0] = static_cast<uint32_t>(mx);
+	frKeyNew[1] = static_cast<uint32_t>(my);
+	frKeyNew[2] = static_cast<uint32_t>(cells);
+	frKeyNew[3] = mapGen;
+	frKeyNew[4] = mapKeyLast;
+	const bool same = frValid && std::memcmp(frKey, frKeyNew, sizeof(frKey)) == 0;
+	frVerifying = same && Env(envVerifyMap, "DIABLO_VERIFY_MAP");
+	if (same && !frVerifying) {
+		const int w = out.w(), h = out.h();
+		uint8_t *const base = out.at(0, 0);
+		const int pitch = out.pitch();
+		for (uint32_t i = 0; i < frCount; i++) {
+			const int x = sx + frX[i], y = sy + frY[i];
+			if (static_cast<unsigned>(x) < static_cast<unsigned>(w) && static_cast<unsigned>(y) < static_cast<unsigned>(h))
+				base[y * pitch + x] = frC[i];
+		}
+		mapHash = Mix(Mix(Mix(mapHash, frId), static_cast<uint32_t>(sx)), static_cast<uint32_t>(sy));
+		stMapFrameReplays++;
+		return true;
+	}
+	if (frVerifying)
+		frCheck = FrameChecksum();
+	frCapturing = true;
+	frBad = false;
+	frCount = 0;
+	frSX = sx;
+	frSY = sy;
+	frHashSaved = mapHash;
+	return false;
+}
+
+void MapPlayersBegin()
+{
+	if (frCapturing) {
+		frCapturing = false;
+		if (frVerifying) {
+			stMapVerified++;
+			if (frBad || FrameChecksum() != frCheck) {
+				stMapVerifyBad++;
+				if (stMapVerifyBad <= 20)
+					SDL_Log("cells: VERIFY MAP frame list differs (%lu pixels)", static_cast<unsigned long>(frCount));
+			}
+		}
+		if (!frBad) {
+			frValid = true;
+			std::memcpy(frKey, frKeyNew, sizeof(frKey));
+			frId++;
+			// the hash a replay of this list gives (MapFrameBegin)
+			mapHash = Mix(Mix(Mix(frHashSaved, frId), static_cast<uint32_t>(frSX)), static_cast<uint32_t>(frSY));
+			stMapFrameCaptures++;
+			stMapFrameLen = frCount;
+		} else {
+			frValid = false;
+			stMapFrameBad++;
+		}
+	}
+	if (mapT0 != 0)
+		mapTPlr = amiga_eclock();
+}
+
+void MapTextBegin()
+{
+	if (mapT0 != 0)
+		mapTText = amiga_eclock();
+}
+
+bool AutomapEnd(const Surface &out)
+{
+	const bool stats = mapT0 != 0;
+	bool repair = false;
+	if (!mapKeptNow) {
+		// another map type: it covers the view, everything is sent (and
+		// copied again next frame)
+		msdl_view_overlay_all();
+	} else {
+		const bool changed = !mapKeptLast || mapHash != mapHashLast || camX != prevCamX || camY != prevCamY
+		    || Env(envMapAll, "DIABLO_MAP_ALL");
+		if (changed) {
+			// pixels of the last map that the new one does not draw are still
+			// on the game's buffer when its copy was partial: copy all of the
+			// scene and draw the map again (the caller)
+			if (mapKeptLast && lastCopyPartial) {
+				for (int y = 0; y < viewH; y++)
+					std::memcpy(out.at(0, y), ScenePtr(0, y), viewW);
+				repair = true;
+				stMapRepairs++;
+			}
+			msdl_view_send_all();
+			stMapSendAll++;
+		}
+		mapHashLast = mapHash;
+		mapKeptLast = true;
+	}
+	if (stats) {
+		const unsigned long t = amiga_eclock();
+		stMapFrames++;
+		stMapTime += t - mapT0;
+		if (mapTLoop != 0 && mapTText != 0) {
+			stMapPre += mapTLoop - mapT0;
+			stMapLoop += (mapTPlr != 0 ? mapTPlr : mapTText) - mapTLoop;
+			if (mapTPlr != 0)
+				stMapPlr += mapTText - mapTPlr;
+			stMapText += t - mapTText;
+		}
+		mapTLoop = mapTText = mapTPlr = 0;
+	}
+	return repair;
+}
+
 SDL_Surface *TileScratch()
 {
 	return EnsureGuarded(scratchG, 64, 64);
@@ -668,6 +1056,7 @@ void DrawScene(const Surface &out, int firstTileX, int firstTileY, int offsetX, 
     uint32_t levelKey, bool lightMoves, const std::function<void(const Surface &)> &drawScene)
 {
 	overlayTrack = false;
+	lastCopyPartial = false;
 	gameSurface = out.surface;
 	const bool stats = Env(envStats, "DIABLO_STATS");
 	unsigned long t0 = stats ? amiga_eclock() : 0, t1, t2, t3, t4;
@@ -840,6 +1229,7 @@ void DrawScene(const Surface &out, int firstTileX, int firstTileY, int offsetX, 
 		const uint8_t *gp = out.at(0, 0);
 		const bool partial = !full && dx == 0 && dy == 0 && nd >= 0 && gp == lastGamePixels && gameCopyValid;
 		lastGamePixels = gp;
+		lastCopyPartial = partial;
 		if (partial) {
 			for (int i = 0; i < numRects; i++)
 				CopyToGame(out, rects[i].x, rects[i].y, rects[i].w, rects[i].h);
@@ -851,7 +1241,8 @@ void DrawScene(const Surface &out, int firstTileX, int firstTileY, int offsetX, 
 				std::memcpy(out.at(0, y), ScenePtr(0, y), viewW);
 		}
 		gameCopyValid = true;
-		if (Env(envVerify, "DIABLO_VERIFY_RENDER")) {
+		// (with the automap kept on the game's buffer its pixels differ there on purpose)
+		if (Env(envVerify, "DIABLO_VERIFY_RENDER") && !mapKeptLast) {
 			for (int y = 0; y < viewH; y++) {
 				if (std::memcmp(out.at(0, y), ScenePtr(0, y), viewW) != 0) {
 					SDL_Log("cells: GAME COPY differs from the scene at row %d (%s copy)", y, partial ? "partial" : "full");

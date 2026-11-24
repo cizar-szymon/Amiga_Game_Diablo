@@ -9,6 +9,7 @@ unsigned long amiga_now_ms(void);
 void amiga_time_close(void);
 unsigned long amiga_eclock(void);
 unsigned long amiga_eclock_per_ms(void);
+int amiga_eclock_fpga(void);
 
 #ifdef __cplusplus
 }

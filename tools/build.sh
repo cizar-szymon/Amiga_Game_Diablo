@@ -15,8 +15,10 @@ if [ "$1" = clean ]; then
 fi
 EXTRA="$*"
 # compiler flags (the toolchain file caches its own at the first configure;
+# -mtune=68060: no 64-bit MULS.L/DIVS.L for divisions by constants (the 060
+# traps them to 68060.library, ~1.3 us each; check: WarpBench/find64.sh);
 # these replace them). No -s: symbols stay for devilutionx.debug.
-CFLAGS68K="-fbbb=- -ffast-math -m68040 -mhard-float -fomit-frame-pointer -mcrt=nix20"
+CFLAGS68K="-fbbb=- -ffast-math -m68040 -mtune=68060 -mhard-float -fomit-frame-pointer -mcrt=nix20"
 # C++ only: no threads, no locks around function-local statics
 CXXFLAGS68K="$CFLAGS68K -fno-threadsafe-statics"
 mkdir -p build/amiga

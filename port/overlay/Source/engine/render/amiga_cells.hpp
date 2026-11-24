@@ -70,6 +70,56 @@ inline void RecordOverlay(const Surface &out, int x, int y, int w, int h)
 void OverlayAll();
 
 /**
+ * Automap (opaque type) over the scene. Its pixels stay on the game's buffer
+ * from frame to frame: the scene copy (stage 2c) puts back only the dirty
+ * rectangles and the overlay damage, the map is drawn again on top, and an
+ * unchanged map (same hash of its pixels, camera still) sends nothing to the
+ * card. Upstream draws it again every frame, so the view was copied and sent
+ * whole (OverlayAll) as long as the map was open.
+ *   AutomapBegin(kept)  before DrawGame: kept = the map is drawn this way now
+ *   AutomapDrawStart()  before DrawAutomap
+ *   AutomapEnd(out)     after it; true: draw the map once more (the game's
+ *                       buffer got the whole scene again)
+ */
+void AutomapBegin(bool kept);
+void AutomapDrawStart();
+bool AutomapEnd(const Surface &out);
+/** Hash of every automap pixel (position and colour) in drawing order. */
+inline uint32_t mapHash = 0;
+/**
+ * Automap tiles: the pixels one map tile draws (DrawAutomapTile, opaque
+ * type) are always the same offsets from its centre as long as AutomapView
+ * and dungeon[][] around it (2 tiles) and the level do not change. They are
+ * captured once per tile (relative to the centre) and replayed after that:
+ * the same writes in the same order, so the same picture. Upstream works out
+ * every tile and its 8 neighbours every frame (13-15 ms on a 68060 at 100 MHz).
+ * ENV:DIABLO_VERIFY_MAP draws every replayed tile again the old way and
+ * compares the pixel lists.
+ */
+inline bool mapCapturing = false;
+void MapCapturePixel(int x, int y, uint8_t color);
+inline void MapPixel(int x, int y, uint8_t color)
+{
+	if (mapCapturing) {
+		MapCapturePixel(x, y, color);
+		return;
+	}
+	mapHash = (mapHash ^ ((static_cast<uint32_t>(x) << 18) ^ (static_cast<uint32_t>(y) << 8) ^ color)) * 16777619U;
+}
+/** Before the tile loop: key = level, scale and colours; view / dungeon: AutomapView, dungeon (40x40). */
+void MapTilesBegin(uint32_t key, const uint8_t *view, const uint8_t *dungeon);
+/** A tile of the loop: 0 = replayed (done), 1 = draw it (captured, call MapTileEnd after), 2 = draw it (not cached). */
+int MapTile(const Surface &out, int cx, int cy, int mx, int my);
+void MapTileEnd();
+/** Probe: the tile loop and the players are done, the text follows. */
+void MapTextBegin();
+/** Before the tile loop (after MapTilesBegin): sx, sy = the loop's first screen
+    point, mx, my its first tile. true: the whole loop was replayed, skip it. */
+bool MapFrameBegin(const Surface &out, int sx, int sy, int mx, int my, int cells, bool opaque);
+/** Probe, and the end of the tile loop (its whole-frame list). */
+void MapPlayersBegin();
+
+/**
  * Every tile visit of the scene (floor, tile content, out of bounds) starts
  * with BeginTile(). The record pass notes the area all primitives of the
  * visit cover; the render pass skips a visit whose area misses every dirty

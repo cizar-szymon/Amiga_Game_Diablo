@@ -1,10 +1,23 @@
 DiabloWarp - historia wydań
 ===========================
 
-Zgłaszanie błędu: naciśnij F10 w grze i wyślij pliki z RAM:Diablo-report
-(zapis, diablo.ini i opis z numerem wersji) z opisem, co się stało, i
-numerem wersji (w lewym dolnym rogu menu głównego albo "Version devilutionx"
-w Shellu).
+Zgłaszanie błędu: naciśnij F10 w grze. W katalogu zapisów (save) powstanie
+szuflada bugNNN (opis z numerem wersji i Amigą, obraz ekranu, zapis gry,
+ustawienia). Z działającym TCP/IP gra od razu proponuje wysłanie zgłoszenia na
+serwer gier (e-mail i opis w pasku rozmowy, pusty Enter wysyła, Esc nie).
+Bez sieci dopisz w bugNNN.txt, co się stało, i wyślij całą szufladę.
+
+
+0.49 (beta) - 25 listopada 2026
+-------------------------------
+
+- automapa (Tab) szybka: w lochu chodzenie z mapą ok. 22 klatki na sekundę,
+  postój ok. 40 (Warp 1260, 68060); do karty idzie tylko to, co się zmieniło
+- program skompilowany pod 68060 (dalej działa na 68040)
+- zgłoszenie błędu pod F10: szuflada save/bugNNN z obrazem ekranu, zapisem,
+  ustawieniami i opisem Amigi; wysyłka na serwer gier (e-mail i opis
+  w pasku rozmowy)
+- napis „Gra zapisana” znika po sekundzie
 
 
 0.48 (beta) - 14 listopada 2026

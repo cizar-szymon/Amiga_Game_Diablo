@@ -59,45 +59,16 @@ void msdl_view_scene(int dx, int dy, int vw, int vh, const int *rects, int n, in
     have_scene = 1;
 }
 
-void msdl_view_overlay(int x, int y, int w, int h)
+static void add_damage(int x, int y, int x1, int y1)
 {
-    int x1, y1;
-    if (view_h <= 0) return;
-    if (cur_all) {
-        dmg_all = 1;
-        return;
-    }
-    x1 = x + w;
-    y1 = y + h;
-    if (x < 0) x = 0;
-    if (y < 0) y = 0;
-    if (x1 > view_w) x1 = view_w;
-    if (y1 > view_h) y1 = view_h;
-    if (x1 <= x || y1 <= y) return;
-    if (n_cur > 0) {
-        /* the same rectangle again (a text drawn letter by letter is many
-           calls next to each other): grow the last one when it touches */
-        VRect *l = &ov_cur[n_cur - 1];
-        if (y == l->y && y1 - y == l->h && x <= l->x + l->w && x1 >= l->x) {
-            int nx = x < l->x ? x : l->x;
-            int nx1 = x1 > l->x + l->w ? x1 : l->x + l->w;
-            l->x = nx;
-            l->w = nx1 - nx;
-            if (n_dmg > 0) {
-                VRect *d = &dmg[n_dmg - 1];
-                int dx0 = x < d->x ? x : d->x, dx1 = x1 > d->x + d->w ? x1 : d->x + d->w;
-                if (d->y == y && d->h == y1 - y) {
-                    d->x = dx0;
-                    d->w = dx1 - dx0;
-                    return;
-                }
-            }
-            if (n_dmg < MAXR) {
-                dmg[n_dmg].x = x; dmg[n_dmg].y = y; dmg[n_dmg].w = x1 - x; dmg[n_dmg].h = y1 - y;
-                n_dmg++;
-            } else {
-                dmg_all = 1;
-            }
+    if (n_dmg > 0) {
+        /* a text drawn letter by letter is many calls next to each other:
+           grow the last rectangle when it is the same row and touches */
+        VRect *d = &dmg[n_dmg - 1];
+        if (d->y == y && d->h == y1 - y && x <= d->x + d->w && x1 >= d->x) {
+            int dx0 = x < d->x ? x : d->x, dx1 = x1 > d->x + d->w ? x1 : d->x + d->w;
+            d->x = dx0;
+            d->w = dx1 - dx0;
             return;
         }
     }
@@ -110,6 +81,33 @@ void msdl_view_overlay(int x, int y, int w, int h)
     } else {
         dmg_all = 1;
     }
+}
+
+void msdl_view_overlay(int x, int y, int w, int h)
+{
+    int x1, y1;
+    if (view_h <= 0) return;
+    x1 = x + w;
+    y1 = y + h;
+    if (x < 0) x = 0;
+    if (y < 0) y = 0;
+    if (x1 > view_w) x1 = view_w;
+    if (y1 > view_h) y1 = view_h;
+    if (x1 <= x || y1 <= y) return;
+    /* damage: what the next scene copy must put back */
+    add_damage(x, y, x1, y1);
+    /* overlays: what this present must send (all of it anyway: no list) */
+    if (cur_all) return;
+    if (n_cur > 0) {
+        VRect *l = &ov_cur[n_cur - 1];
+        if (y == l->y && y1 - y == l->h && x <= l->x + l->w && x1 >= l->x) {
+            int nx = x < l->x ? x : l->x;
+            int nx1 = x1 > l->x + l->w ? x1 : l->x + l->w;
+            l->x = nx;
+            l->w = nx1 - nx;
+            return;
+        }
+    }
     if (n_cur >= MAXR) {
         cur_all = 1;
         return;
@@ -119,6 +117,13 @@ void msdl_view_overlay(int x, int y, int w, int h)
     ov_cur[n_cur].w = x1 - x;
     ov_cur[n_cur].h = y1 - y;
     n_cur++;
+}
+
+/* The whole view goes to the card this frame (the automap changed); unlike
+   msdl_view_overlay_all the next scene copy still needs only the damage. */
+void msdl_view_send_all(void)
+{
+    cur_all = 1;
 }
 
 void msdl_view_overlay_all(void)
