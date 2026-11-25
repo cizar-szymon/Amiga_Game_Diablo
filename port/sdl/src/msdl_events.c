@@ -577,12 +577,37 @@ static struct MsgPort *delay_port;
 static struct timerequest *delay_req;
 static int delay_open;
 
+/* At the end of the program (atexit): the port, the request and timer.device
+   of SDL_Delay. AmigaOS frees none of them by itself - 80 bytes of Fast RAM
+   lost on every run that slept (the game, the videos; cleanup test 24.11.2026). */
+static void msdl_sleep_close(void)
+{
+    if (delay_open) {
+        CloseDevice((struct IORequest *)delay_req);
+        delay_open = 0;
+    }
+    if (delay_req != NULL) {
+        DeleteIORequest((struct IORequest *)delay_req);
+        delay_req = NULL;
+    }
+    if (delay_port != NULL) {
+        DeleteMsgPort(delay_port);
+        delay_port = NULL;
+    }
+}
+
 void msdl_sleep_ms(Uint32 ms)
 {
+    static int registered;
     if (ms == 0) return;
     if (!delay_open) {
-        delay_port = CreateMsgPort();
-        if (delay_port != NULL) delay_req = (struct timerequest *)CreateIORequest(delay_port, sizeof(struct timerequest));
+        if (!registered) {
+            registered = 1;
+            atexit(msdl_sleep_close);
+        }
+        if (delay_port == NULL) delay_port = CreateMsgPort();
+        if (delay_port != NULL && delay_req == NULL)
+            delay_req = (struct timerequest *)CreateIORequest(delay_port, sizeof(struct timerequest));
         if (delay_req == NULL || OpenDevice((CONST_STRPTR)TIMERNAME, UNIT_MICROHZ, (struct IORequest *)delay_req, 0) != 0) {
             Delay((ms + 19) / 20);
             return;

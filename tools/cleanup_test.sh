@@ -4,8 +4,10 @@
 # and after every round. The memory difference must be 0.
 #   sh tools/cleanup_test.sh [rounds-list]   e.g. "menu-quit game-quit game-ctrlc"
 # Rounds: menu-quit (main menu, SDL_QUIT), game-quit (hero AR in the dungeon,
-# map on, walk, SDL_QUIT), game-ctrlc (the same, Ctrl-C from AmiAgent stop).
+# map on and off - no walking: the stairs are near and a level change
+# ignores quit for its whole loading -, SDL_QUIT), game-ctrlc (the same, Ctrl-C from AmiAgent stop).
 # The log goes to WorkSD:Games/DiabloWarp/clean-test.log (not RAM:, it would count).
+# CLEANARGS="NOSOUND": extra arguments for the game.
 cd "$(dirname "$0")/.."
 R="python tools/amiga_remote.py"
 ROUNDS=${1:-"menu-quit menu-quit game-quit game-ctrlc game-quit game-ctrlc menu-quit"}
@@ -25,7 +27,8 @@ gone() {
   echo "STILL RUNNING" | tee -a $OUT
 }
 $R put build/amiga/devilutionx WorkSD:Games/DiabloWarp/devilutionx-test >/dev/null
-$R put tools/amiga/run-clean RAM:run-clean >/dev/null
+if [ -n "$CLEANARGS" ]; then sed "s|--log-to-file|$CLEANARGS --log-to-file|" tools/amiga/run-clean > build/run-clean; else cp tools/amiga/run-clean build/run-clean; fi
+$R put build/run-clean RAM:run-clean >/dev/null
 $R run "Delete RAM:diablo-cmd QUIET" >/dev/null
 snap "before"
 n=0
@@ -38,8 +41,8 @@ for r in $ROUNDS; do
     menu-quit) sh tools/cmd.sh "500 quit" ;;
     game-*)
       sh tools/cmd.sh "0 click 320 213" "2500 click 410 323" "500 click 300 445" "2500 key return" \
-        "30000 key tab" "500 key tab" "500 press 560 300" "3000 release" "500 key tab" "1000 mark ok"
-      python -c "import time; time.sleep(42)"
+        "30000 key tab" "500 key tab" "3000 key tab" "1000 mark ok"
+      python -c "import time; time.sleep(55)"
       if [ $r = game-quit ]; then sh tools/cmd.sh "0 quit"; else $R stop devilutionx-test >/dev/null; fi ;;
   esac
   gone

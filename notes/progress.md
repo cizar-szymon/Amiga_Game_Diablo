@@ -77,3 +77,8 @@
   `single_0/1.sv` i `diablo.ini` przywrócone z `private/amiga1-save-20261124`.
 - Awaria `trap 5` (dzielenie przez zero) w nowych wierszach statystyk mapy przy zamkniętej mapie –
   poprawione (klamry), Amiga 1 zresetowana przez użytkownika.
+
+## 25.11.2026 – 0.50
+
+- Napisy automapy z pamięci podręcznej, zwolnienie zasobów `SDL_Delay` (80 B), wynik zgłoszenia w logu;
+  test sprzątania: 307 352 B na uruchomienie (sterownik Warpa), Chip 0. Szczegóły: PORTING.md, „Po wydaniu 0.49”.

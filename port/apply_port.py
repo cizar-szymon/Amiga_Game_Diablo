@@ -409,8 +409,18 @@ CHANGES = [
      "#ifdef __amigaos__\n\tamiga_cells::MapPlayersBegin();\n#endif\n"),
     ("Source/automap.cpp",
      "\tDrawAutomapText(out);\n}\n",
-     "#ifdef __amigaos__\n#undef DrawAutomapTile\n\tamiga_cells::MapTextBegin();\n#endif\n"
-     "\tDrawAutomapText(out);\n}\n"),
+     "#ifdef __amigaos__\n#undef DrawAutomapTile\n\tamiga_cells::MapTextBegin();\n"
+     "\t// the text depends on these only (single player): cached as its pixels\n"
+     "\tif (gbIsMultiplayer || !amiga_cells::MapTextCached(out,\n"
+     "\t        static_cast<uint32_t>(currlevel) ^ (static_cast<uint32_t>(setlvlnum) << 8) ^ (static_cast<uint32_t>(leveltype) << 16)\n"
+     "\t            ^ (setlevel ? 0x1000000U : 0U) ^ (*GetOptions().Graphics.showFPS ? 0x2000000U : 0U)\n"
+     "\t            ^ (static_cast<uint32_t>(sgGameInitInfo.nDifficulty) << 28),\n"
+     "\t        [](const Surface &s) { DrawAutomapText(s); }))\n"
+     "\t\tDrawAutomapText(out);\n"
+     "#else\n"
+     "\tDrawAutomapText(out);\n"
+     "#endif\n"
+     "}\n"),
     ("Source/engine/render/automap_render.cpp",
      "#include \"engine/render/automap_render.hpp\"\n",
      "#include \"engine/render/automap_render.hpp\"\n#include \"engine/render/amiga_cells.hpp\"\n"),
@@ -922,7 +932,7 @@ CHANGES = [
      "{\n"
      "\tif (amigaReportStep == 1 || amigaReportStep == 2) {\n"
      "\t\tamigaReportStep = 0;\n"
-     "\t\tLogInfo(\"Bug report {}: not sent (Esc)\", amigaReportName);\n"
+     "\t\tSDL_Log(\"Bug report %s: not sent (Esc)\", amigaReportName.c_str());\n"
      "\t\tEventPlrMsg(\"Report not sent. Files: \" + amigaReportFolder, UiFlags::ColorWhite);\n"
      "\t}\n"
      "}\n"
@@ -936,7 +946,7 @@ CHANGES = [
      "\tif (!Report_Result(text, sizeof(text), &ok))\n"
      "\t\treturn;\n"
      "\tamigaReportStep = 0;\n"
-     "\tLogInfo(\"Bug report {}: {} {}\", amigaReportName, ok ? \"sent, number\" : \"not sent:\", text);\n"
+     "\tSDL_Log(\"Bug report %s: %s %s\", amigaReportName.c_str(), ok ? \"sent, number\" : \"not sent:\", text);\n"
      "\tif (ok)\n"
      "\t\tEventPlrMsg(StrCat(\"Report no. \", text, \" sent. Thank you!\"), UiFlags::ColorWhite);\n"
      "\telse\n"

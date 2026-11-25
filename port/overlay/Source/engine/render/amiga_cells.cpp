@@ -16,6 +16,7 @@
 #include <cstdlib>
 #include <cstring>
 #include <functional>
+#include <vector>
 
 #include <SDL.h>
 
@@ -970,6 +971,89 @@ void MapTextBegin()
 {
 	if (mapT0 != 0)
 		mapTText = amiga_eclock();
+}
+
+// ---- automap text (level, difficulty): its pixels cached (amiga_cells.hpp) ----
+namespace {
+Guarded textAG, textBG;
+std::vector<uint32_t> mapText; // (x << 16) | (y << 8) | colour, in drawing area order
+uint32_t mapTextKey = 0;
+bool mapTextValid = false;
+int mapTextX0, mapTextY0, mapTextX1, mapTextY1;
+unsigned long stMapTextDraws, stMapTextBad;
+
+/** The text drawn into two buffers cleared to 0x00 and 0xFF: a pixel the
+    text wrote is the same in both. */
+bool MapTextCapture(int w, int h, const std::function<void(const Surface &)> &draw, std::vector<uint32_t> &list,
+    int &x0, int &y0, int &x1, int &y1)
+{
+	SDL_Surface *a = EnsureGuarded(textAG, w, h);
+	SDL_Surface *b = EnsureGuarded(textBG, w, h);
+	if (a == nullptr || b == nullptr)
+		return false;
+	for (int y = 0; y < h; y++) {
+		std::memset(static_cast<uint8_t *>(a->pixels) + y * a->pitch, 0x00, w);
+		std::memset(static_cast<uint8_t *>(b->pixels) + y * b->pitch, 0xFF, w);
+	}
+	draw(Surface(a));
+	draw(Surface(b));
+	list.clear();
+	x0 = y0 = 0x7FFF;
+	x1 = y1 = -1;
+	for (int y = 0; y < h; y++) {
+		const uint8_t *pa = static_cast<const uint8_t *>(a->pixels) + y * a->pitch;
+		const uint8_t *pb = static_cast<const uint8_t *>(b->pixels) + y * b->pitch;
+		for (int x = 0; x < w; x++) {
+			if (pa[x] == pb[x]) {
+				list.push_back((static_cast<uint32_t>(x) << 16) | (static_cast<uint32_t>(y) << 8) | pa[x]);
+				if (x < x0) x0 = x;
+				if (x > x1) x1 = x;
+				if (y < y0) y0 = y;
+				if (y > y1) y1 = y;
+			}
+		}
+	}
+	return true;
+}
+} // namespace
+
+bool MapTextCached(const Surface &out, uint32_t key, const std::function<void(const Surface &)> &draw)
+{
+	const int w = out.w(), h = std::min(out.h(), 128);
+	key ^= static_cast<uint32_t>(w) * 2654435761U;
+	const bool verify = Env(envVerifyMap, "DIABLO_VERIFY_MAP");
+	if (!mapTextValid || key != mapTextKey) {
+		if (!MapTextCapture(w, h, draw, mapText, mapTextX0, mapTextY0, mapTextX1, mapTextY1)) {
+			mapTextValid = false;
+			return false;
+		}
+		mapTextKey = key;
+		mapTextValid = true;
+		stMapTextDraws++;
+	} else if (verify) {
+		std::vector<uint32_t> check;
+		int x0, y0, x1, y1;
+		stMapVerified++;
+		if (MapTextCapture(w, h, draw, check, x0, y0, x1, y1) && check != mapText) {
+			stMapVerifyBad++;
+			stMapTextBad++;
+			if (stMapTextBad <= 20)
+				SDL_Log("cells: VERIFY MAP text differs (%lu pixels now, %lu cached)", static_cast<unsigned long>(check.size()),
+				    static_cast<unsigned long>(mapText.size()));
+			mapText.swap(check);
+			mapTextX0 = x0;
+			mapTextY0 = y0;
+			mapTextX1 = x1;
+			mapTextY1 = y1;
+		}
+	}
+	uint8_t *const base = out.at(0, 0);
+	const int pitch = out.pitch();
+	for (const uint32_t e : mapText)
+		base[static_cast<int>((e >> 8) & 0xFF) * pitch + static_cast<int>(e >> 16)] = static_cast<uint8_t>(e);
+	if (mapTextX1 >= mapTextX0)
+		RecordOverlay(out, mapTextX0, mapTextY0, mapTextX1 - mapTextX0 + 1, mapTextY1 - mapTextY0 + 1);
+	return true;
 }
 
 bool AutomapEnd(const Surface &out)

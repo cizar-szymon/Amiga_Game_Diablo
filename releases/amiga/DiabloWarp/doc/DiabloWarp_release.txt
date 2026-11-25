@@ -8,6 +8,14 @@ serwer gier (e-mail i opis w pasku rozmowy, pusty Enter wysyla, Esc nie).
 Bez sieci dopisz w bugNNN.txt, co sie stalo, i wyslij cala szuflade.
 
 
+0.50 (beta) - 25 listopada 2026
+-------------------------------
+
+- automapa: napisy (poziom, trudnosc) rysowane z pamieci podrecznej;
+  chodzenie w lochu z mapa ok. 23-27 klatek na sekunde (Warp 1260, 68060)
+- po wyjsciu z gry zwolnione wszystkie zasoby timer.device
+
+
 0.49 (beta) - 25 listopada 2026
 -------------------------------
 

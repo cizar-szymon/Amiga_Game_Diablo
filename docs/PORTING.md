@@ -346,6 +346,21 @@ Błąd upstream widoczny tylko na wolnym dysku: `gamemenu_save_game` pokazuje �
 czas przekręcał się na ~49 dni i napis znikał dopiero po Esc / kliknięciu. Teraz reszta sekundy, a gdy zapis
 trwał dłużej – 1 s. Sprawdzone na Amidze 1 (zapis z menu gry): 12 i 20 s po zapisie napisu już nie ma.
 
+### Po wydaniu 0.49 (25.11.2026, Amiga 1) – wydane jako 0.50
+
+- **Komunikat wysyłki zgłoszenia:** „Report no. 20 sent. Thank you!” widoczny na ekranie (zrzuty co ~3 s);
+  wynik też w logu przez `SDL_Log` (`LogInfo` upstream nie trafiał do pliku logu portu).
+- **80 B Fast RAM na uruchomienie:** `SDL_Delay` (`msdl_sleep_ms`) tworzył port i `timerequest` (2 × 40 B) i
+  otwierał `timer.device` bez zamykania; menu tego nie woła, gra i filmy tak. Teraz `atexit(msdl_sleep_close)`.
+  `tools/cleanup_test.sh` (gra ×2, Ctrl-C, menu): ubywa tylko 307 352 B na uruchomienie (bitmapa ekranu, sterownik
+  Warpa), Chip 0. Jednorazowe 1 144 B przy Ctrl-C się nie powtórzyło. W teście nie ma już marszu: schody są
+  blisko, a zmiana poziomu ignoruje `quit` przez całe wczytywanie (stąd „STILL RUNNING” we wcześniejszych próbach).
+- **Pozostałe 15 `DIVU.L`/`MULS.L` 64-bit:** `ParseItemEquipType` (tabele przy starcie), `PlaceUniqueMonst`
+  (tworzenie poziomu), `magic_enum` i `libstdc++` (gotowa biblioteka pod 020) – zimny kod, bez zmian.
+- **Napisy na automapie** (poziom, trudność): lista pikseli z dwóch buforów (0x00 / 0xFF), klucz = poziom,
+  trudność, licznik kl./s; `DIABLO_VERIFY_MAP` porównuje też je: 658 tys. kontroli, 0 różnic. 1,6 → 0,45 ms;
+  marsz z mapą ~22 → 23–27 kl./s.
+
 ## Dźwięk – rozpoznanie i test miksera (4.11.2026)
 
 **Dane** (`diabdat.mpq`, nagłówki WAV wszystkich 824 plików z `effects.tsv` i listy muzyki):

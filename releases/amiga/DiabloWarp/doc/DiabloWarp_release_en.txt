@@ -8,6 +8,14 @@ server (e-mail and your words in the chat bar, an empty Enter sends, Esc does
 not). Without a network add what happened to bugNNN.txt and send the drawer.
 
 
+0.50 (beta) - 25 November 2026
+------------------------------
+
+- Automap: its text (level, difficulty) drawn from a cache; walking in the
+  dungeon with the map about 23-27 frames a second (Warp 1260, 68060)
+- All timer.device resources are freed when the game quits
+
+
 0.49 (beta) - 25 November 2026
 ------------------------------
 

@@ -118,6 +118,12 @@ void MapTextBegin();
 bool MapFrameBegin(const Surface &out, int sx, int sy, int mx, int my, int cells, bool opaque);
 /** Probe, and the end of the tile loop (its whole-frame list). */
 void MapPlayersBegin();
+/**
+ * The automap's text (DrawAutomapText: level, difficulty) as a cached list of
+ * its pixels while key (what the text depends on) stays the same; drawn
+ * again into two buffers when it changes. false: draw it the usual way.
+ */
+bool MapTextCached(const Surface &out, uint32_t key, const std::function<void(const Surface &)> &draw);
 
 /**
  * Every tile visit of the scene (floor, tile content, out of bounds) starts
