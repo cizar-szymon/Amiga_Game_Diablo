@@ -361,6 +361,28 @@ trwał dłużej – 1 s. Sprawdzone na Amidze 1 (zapis z menu gry): 12 i 20 s po
   trudność, licznik kl./s; `DIABLO_VERIFY_MAP` porównuje też je: 658 tys. kontroli, 0 różnic. 1,6 → 0,45 ms;
   marsz z mapą ~22 → 23–27 kl./s.
 
+### F10: okno zgłoszenia w ramce, pauza (25.11.2026, Amiga 2, po wydaniu 0.50)
+
+- **Zgłoszenie użytkownika:** po F10 dół ekranu rysowany źle. Pasek rozmowy (e-mail i opis) rysuje panel z drugiej
+  połowy `BottomBuffer` (grafika `ctrlpan	alkpanl`), którą upstream robi tylko w grze wieloosobowej – w grze dla
+  jednego gracza czytał pamięć za buforem (`DrawMainPanelButtons` sięgał też po niewczytane `multiButtons`).
+  Pierwsza poprawka (obie połowy bufora zawsze) rysowała dobrze, ale użytkownik: pisanie w pasku prawie niemożliwe.
+- **Decyzja użytkownika:** zamiast paska – okno w ramce na środku ekranu, bez napisów na ekranie („Report saved…”)
+  i bez ramki „Pause”, gra wstrzymana; wszystkie informacje (także wynik wysyłki) w tym oknie.
+- **Teraz:** `port/overlay/Source/amiga_report_ui.cpp` (cała obsługa F10: szuflada, okno, wysyłka). Okno: numer
+  zgłoszenia, gdzie zapisane, pole e-mail, pole opisu (6 linii, zawijanie po szerokości, 1000 znaków), podpowiedź
+  klawiszy; PL/EN według języka gry. Enter: e-mail → opis / nowa linia; Enter w pustej linii albo F10: wyślij;
+  Backspace; Esc: nie wysyłaj; po wyniku Enter/Esc wraca do gry. Bez sieci okno mówi, że zgłoszenie zostaje na dysku.
+  Polskie litery z klawiatury (ISO-8859-2 jako Latin-1 z `msdl_events.c`) i z UTF-8 zamieniane od razu na ASCII
+  (serwer). `GameEventHandler` oddaje oknu klawisze, tekst i przyciski myszy, zanim zobaczy je gra; pauza
+  `PauseMode = 2` bez `gmenu_draw_pause` (bez czerwonego cienia) i bez `OverlayAll` – co klatkę idzie na kartę
+  tylko prostokąt okna. Pasek rozmowy i panel – jak w upstream (łatki `control_chat.cpp`, `control_panel.cpp`,
+  `mainpanel.cpp` usunięte).
+- **Test (Amiga 2, kopia zapisów w RAM:):** okno z e-mailem „abc”, opisem w dwóch liniach, wysyłka na adres bez
+  serwera → w ramce „Zgłoszenie nie zostało wysłane: The game server did not answer. Zostaje na dysku.”; Enter –
+  gra rusza, bez napisów. Wcześniej (pasek rozmowy, ta sama wysyłka) zgłoszenie nr 21 doszło na serwer – testowe,
+  do usunięcia.
+
 ## Dźwięk – rozpoznanie i test miksera (4.11.2026)
 
 **Dane** (`diabdat.mpq`, nagłówki WAV wszystkich 824 plików z `effects.tsv` i listy muzyki):

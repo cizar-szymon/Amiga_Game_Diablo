@@ -3,9 +3,16 @@ DiabloWarp - historia wydań
 
 Zgłaszanie błędu: naciśnij F10 w grze. W katalogu zapisów (save) powstanie
 szuflada bugNNN (opis z numerem wersji i Amigą, obraz ekranu, zapis gry,
-ustawienia). Z działającym TCP/IP gra od razu proponuje wysłanie zgłoszenia na
-serwer gier (e-mail i opis w pasku rozmowy, pusty Enter wysyła, Esc nie).
+ustawienia). Z działającym TCP/IP gra się wstrzymuje i otwiera okno zgłoszenia
+(e-mail i opis, Enter w pustej linii albo F10 wysyła, Esc nie).
 Bez sieci dopisz w bugNNN.txt, co się stało, i wyślij całą szufladę.
+
+
+0.51 (beta) - 25 listopada 2026
+-------------------------------
+
+- zgłoszenie błędu pod F10 w oknie na środku ekranu: e-mail, opis, wysyłka
+  i jej wynik w jednym miejscu; gra wstrzymana, dopóki okno jest otwarte
 
 
 0.50 (beta) - 25 listopada 2026

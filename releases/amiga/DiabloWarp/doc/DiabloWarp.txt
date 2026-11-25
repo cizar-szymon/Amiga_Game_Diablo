@@ -1,7 +1,7 @@
 DiabloWarp - Diablo na Amige z karta Warp
 =========================================
 
-Wersja 0.50 (beta), 25 listopada 2026
+Wersja 0.51 (beta), 25 listopada 2026
 
 Diablo (Blizzard, 1996) na Amidze: DevilutionX, otwarty silnik Diablo,
 przeniesiony na AmigaOS 3 i dostrojony do kart przyspieszajacych Warp.
@@ -28,7 +28,7 @@ Instalacja
 ----------
 
 1. Rozpakuj archiwum, np.:
-      UnZip DiabloWarp-0.50.zip -d Work:Games
+      UnZip DiabloWarp-0.51.zip -d Work:Games
 2. Skopiuj diabdat.mpq z plyty Diablo albo wersji GOG do szuflady
    DiabloWarp/data. Danych gry nie ma w paczce.
 3. Uruchom gre ikona devilutionx.
@@ -120,13 +120,14 @@ postac), bugNNN-screen.bmp (obraz ekranu), bugNNN.sv (zapis gry) i bugNNN.ini
 Numer wersji jest tez w lewym dolnym rogu menu glownego i w Shellu
 ("Version devilutionx"). Zapisy ze zgloszen nie pojawiaja sie na liscie postaci.
 
-Gdy dziala stos TCP/IP (np. Roadshow), gra od razu proponuje wyslanie zgloszenia
-na serwer gier: w pasku rozmowy wpisz swoj e-mail (mozna zostawic pusty, gra go
-zapamieta) i Enter, potem opis bledu - Enter po kazdej linii, pusty Enter wysyla,
-Esc nie wysyla (pliki zostaja w szufladzie bugNNN). Wysylane sa: e-mail, opis,
-numer wersji, opis Amigi (procesor, system, karta Warp, wolna pamiec) i pliki
-z szuflady bugNNN. Po wyslaniu gra pokaze numer zgloszenia. Adres serwera jest
-w pliku save/report.ini (server=83.12.152.135:6810).
+Gdy dziala stos TCP/IP (np. Roadshow), gra wstrzymuje sie i otwiera na srodku
+ekranu okno zgloszenia: wpisz swoj e-mail (mozna zostawic pusty, gra go
+zapamieta) i Enter, potem opis bledu - Enter zaczyna nowa linie, Enter w pustej
+linii albo F10 wysyla, Esc nie wysyla (pliki zostaja w szufladzie bugNNN).
+Wysylane sa: e-mail, opis, numer wersji, opis Amigi (procesor, system, karta
+Warp, wolna pamiec) i pliki z szuflady bugNNN. Wynik (numer zgloszenia) pokazuje
+to samo okno; Enter albo Esc wraca do gry. Adres serwera jest w pliku
+save/report.ini (server=83.12.152.135:6810).
 
 Jesli gra padnie (okno "Software Failure"), zapisuje przedtem
 RAM:Diablo-crash.txt (rejestry i stos): dolacz go do zgloszenia.

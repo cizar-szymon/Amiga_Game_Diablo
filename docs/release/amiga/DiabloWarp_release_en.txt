@@ -3,9 +3,16 @@ DiabloWarp - release history
 
 Reporting a bug: press F10 in the game. A drawer bugNNN appears in the save
 directory (a text with the release number and the Amiga, the screen, the save,
-the settings). With TCP/IP running the game offers to send it to the game
-server (e-mail and your words in the chat bar, an empty Enter sends, Esc does
-not). Without a network add what happened to bugNNN.txt and send the drawer.
+the settings). With TCP/IP running the game pauses and opens a report window
+(e-mail and your words, Enter on an empty line or F10 sends, Esc does not). Without a network add what happened to bugNNN.txt and send the drawer.
+
+
+0.51 (beta) - 25 November 2026
+------------------------------
+
+- Bug report with F10 in a window in the middle of the screen: the e-mail,
+  your words, the sending and its result in one place; the game is paused
+  while the window is open
 
 
 0.50 (beta) - 25 November 2026

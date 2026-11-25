@@ -62,7 +62,7 @@
 - Dźwięk filmów (nie było go wcale – NOSOUND): strumień 2 miksera Pauli, zapas 4096 ramek, dźwięk jako zegar,
   pomijanie klatek spóźnionych o > 2 klatki. Intro Hellfire 36,0 s, 0 niedopełnień, 411/540 klatek;
   logo Hellfire 98/128; Diablo 240/240. Pierścienie strumieni zwalniane przy wyjściu (był wyciek).
-  Odsłuch przez użytkownika: do zrobienia.
+  Odsłuch przez użytkownika: ok (25.11.2026).
 - 0.48 wydane (commit f2b172b), zainstalowane na Amidze 1 w WorkSD:Games/DiabloWarp (ikony devilutionx, Hellfire).
   Usunięte na prośbę użytkownika: stary port WorkSD:Games/Diablo (+ Diablo.info; zapis i ini w
   private/amiga1-old-Diablo), Test048, ikony testowe. Skrypty run-* czytają dane z DiabloWarp/data, GAME=DIABLO.
@@ -82,3 +82,12 @@
 
 - Napisy automapy z pamięci podręcznej, zwolnienie zasobów `SDL_Delay` (80 B), wynik zgłoszenia w logu;
   test sprzątania: 307 352 B na uruchomienie (sterownik Warpa), Chip 0. Szczegóły: PORTING.md, „Po wydaniu 0.49”.
+- Użytkownik: 0.50 pobrane przez WARP HUB z RP4 (pełna paczka) działa, gra z otwartą mapą działa dobrze.
+- Użytkownik: 0.50 zainstalowane przez WARP HUB także na Amidze 2 i sprawdzone; odsłuch dźwięku (muzyka, mowa, efekty na Pauli) – ok.
+- Postęp ładowania (napis z procentami): użytkownik uznał obecny pasek DevilutionX za wystarczający – bez zmian.
+
+## 25.11.2026 – 0.51
+
+- F10: okno zgłoszenia w ramce (port/overlay/Source/amiga_report_ui.cpp) zamiast paska rozmowy; gra wstrzymana bez ramki Pause.
+  Użytkownik sprawdził na Amidze 2: działa dobrze. Szczegóły: PORTING.md, „F10: okno zgłoszenia w ramce”.
+- Do zrobienia: usunąć testowe zgłoszenie nr 21 z serwera gier (z PC serwer był nieosiągalny).
