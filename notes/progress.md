@@ -90,4 +90,4 @@
 
 - F10: okno zgłoszenia w ramce (port/overlay/Source/amiga_report_ui.cpp) zamiast paska rozmowy; gra wstrzymana bez ramki Pause.
   Użytkownik sprawdził na Amidze 2: działa dobrze. Szczegóły: PORTING.md, „F10: okno zgłoszenia w ramce”.
-- Do zrobienia: usunąć testowe zgłoszenie nr 21 z serwera gier (z PC serwer był nieosiągalny).
+- Testowe zgłoszenie nr 21 usunięte z serwera gier; pełna paczka 0.51 wysłana na RP4 (po przywróceniu sieci).
